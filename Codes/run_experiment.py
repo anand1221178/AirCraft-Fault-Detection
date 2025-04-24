@@ -31,8 +31,8 @@ try:
     from vanilla_dbn import define_vanilla_dbn_structure, define_vanilla_initial_cpts 
     # Inference
     from dbn_inference import prepare_evidence_sequence, run_dbn_inference, format_results_to_dataframe, OBS_STATE_MAP, OBSERVATION_VARS 
-    from dbn_inference import FULL_DBN_HIDDEN_VARS, FULL_DBN_STATE_NAMES # Use maps defined there
-    from dbn_inference import VANILLA_DBN_HIDDEN_VARS, VANILLA_DBN_STATE_NAMES
+    #from dbn_inference import FULL_DBN_HIDDEN_VARS, FULL_DBN_STATE_NAMES # Use maps defined there
+    #from dbn_inference import VANILLA_DBN_HIDDEN_VARS, VANILLA_DBN_STATE_NAMES
     # Prediction Logic
     from utils import map_probabilities_to_predictions 
     # Rule-Based Baseline
@@ -46,9 +46,33 @@ except FileNotFoundError as e:
      print(f"Error: A required file (like config.py or model file) not found: {e}")
      exit()
 
+FULL_DBN_HIDDEN_VARS = [
+    'Engine_Core_Health', 
+    'Lubrication_System_Health',
+    'EGT_Sensor_Health',        
+    'Vibration_Sensor_Health'   
+]
+FULL_DBN_STATE_NAMES = {
+    'Engine_Core_Health': ['OK', 'Warn', 'Fail'],
+    'Lubrication_System_Health': ['OK', 'Fail'],
+    'EGT_Sensor_Health': ['OK', 'Degraded', 'Failed'],     
+    'Vibration_Sensor_Health': ['OK', 'Degraded', 'Failed'] 
+}
+
+VANILLA_DBN_HIDDEN_VARS = [
+    'Engine_Core_Health', 
+    'Lubrication_System_Health'
+]
+VANILLA_DBN_STATE_NAMES = {
+    'Engine_Core_Health': ['OK', 'Warn', 'Fail'],
+    'Lubrication_System_Health': ['OK', 'Fail']
+}
+# Make sure OBS_STATE_MAP and OBSERVATION_VARS are still imported or defined here if needed globally
+# (It seems they are imported from dbn_inference correctly, which is fine)
+
 
 # --- Experiment Configuration ---
-N_RUNS = 10 # Number of simulation runs per scenario (adjust as needed)
+N_RUNS = 1 # Number of simulation runs per scenario (adjust as needed)
 SCENARIOS = ['Normal', 'OilLeak', 'BearingWear', 'EGTSensorFail', 'VibSensorFail']
 # Output file
 RESULTS_DIR = os.path.join(script_dir, 'Data', 'experiment_results')
