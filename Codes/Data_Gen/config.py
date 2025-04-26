@@ -1,7 +1,7 @@
 # config.py
 
 # Simulation Timing
-SIMULATION_DURATION_MINUTES = 60
+SIMULATION_DURATION_MINUTES = 30
 DATA_FREQUENCY_HZ = 1
 FAULT_ONSET_FRACTION = 0.4
 FAULT_PROGRESSION_FRACTION = 0.3  # How long fault takes to fully manifest
