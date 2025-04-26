@@ -72,7 +72,7 @@ VANILLA_DBN_STATE_NAMES = {
 
 
 # --- Experiment Configuration ---
-N_RUNS = 1 # Number of simulation runs per scenario (adjust as needed)
+N_RUNS = 5 # Number of simulation runs per scenario (adjust as needed)
 SCENARIOS = ['Normal', 'OilLeak', 'BearingWear', 'EGTSensorFail', 'VibSensorFail']
 # Output file
 RESULTS_DIR = os.path.join(script_dir, 'Data', 'experiment_results')
