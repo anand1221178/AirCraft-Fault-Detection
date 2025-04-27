@@ -72,7 +72,7 @@ VANILLA_DBN_STATE_NAMES = {
 
 
 # --- Experiment Configuration ---
-N_RUNS = 5 # Number of simulation runs per scenario (adjust as needed)
+N_RUNS = 1 # Number of simulation runs per scenario (adjust as needed)
 SCENARIOS = ['Normal', 'OilLeak', 'BearingWear', 'EGTSensorFail', 'VibSensorFail']
 # Output file
 RESULTS_DIR = os.path.join(script_dir, 'Data', 'experiment_results')
@@ -185,7 +185,7 @@ if __name__ == "__main__":
             try:
                 # Need smoothed discrete data from Full pipeline run (step 2a)
                 if 'df_discrete_smoothed' in locals():
-                     predictions_rule = predict_rule_based(df_discrete_smoothed, **rule_based_params)
+                     predictions_rule = predict_rule_based(df_discrete_smoothed, **rule_based_parameters)
                 else:
                      # Fallback: discretize again if needed (less efficient)
                      print("      Re-discretizing for rule-based (fallback)...")

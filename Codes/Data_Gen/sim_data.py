@@ -170,6 +170,7 @@ def simulate_engine_data(duration_minutes, frequency_hz, scenario='Normal', para
     # --- End Loop ---
     df = pd.DataFrame(data)
     
+    df['Scenario'] = scenario
     # Round numeric columns for realism
     for col in df.select_dtypes(include=np.number).columns:
         df[col] = df[col].round(2)
