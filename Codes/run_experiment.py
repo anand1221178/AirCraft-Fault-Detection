@@ -129,12 +129,19 @@ if __name__ == "__main__":
             # 1. Simulate Data
             print("    Simulating data...")
             # Use run_id as seed for reproducibility if sim_data supports it
+            # df_raw = simulate_engine_data(
+            #     duration_minutes=SIMULATION_DURATION_MINUTES,
+            #     frequency_hz=DATA_FREQUENCY_HZ,
+            #     scenario=scenario,
+            #     # Add seed=run_id if your simulation function accepts it
+            # )
+
             df_raw = simulate_engine_data(
-                duration_minutes=SIMULATION_DURATION_MINUTES,
-                frequency_hz=DATA_FREQUENCY_HZ,
+                duration_minutes=2,  # TEMPORARY DEBUG SETTING (~120 steps)
+                frequency_hz=1,
                 scenario=scenario,
-                # Add seed=run_id if your simulation function accepts it
             )
+
             
             # --- Run Full Pipeline (MRF + Integrated DBN) ---
             print("    Running Full Pipeline (MRF + Integrated DBN)...")

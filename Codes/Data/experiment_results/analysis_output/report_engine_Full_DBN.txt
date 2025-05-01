@@ -2,13 +2,13 @@ Engine Fault Classification Report for Model: Full_DBN
 ==================================================
                     precision    recall  f1-score   support
 
-            Normal       0.04      0.26      0.07      1080
-    OilLeak_Active       0.45      0.10      0.16      6840
-BearingWear_Active       1.00      0.76      0.86      1080
+            Normal       0.00      0.00      0.00        72
+    OilLeak_Active       0.82      1.00      0.90       456
+BearingWear_Active       1.00      0.57      0.73        72
 
-          accuracy                           0.20      9000
-         macro avg       0.50      0.37      0.36      9000
-      weighted avg       0.46      0.20      0.23      9000
+          accuracy                           0.83       600
+         macro avg       0.61      0.52      0.54       600
+      weighted avg       0.74      0.83      0.77       600
 
 ==================================================
-Overall Weighted Metrics: {'accuracy': 0.19555555555555557, 'precision': 0.4643531673300596, 'recall': 0.19555555555555557, 'f1': 0.23216527660040673}
+Overall Weighted Metrics: {'accuracy': 0.8283333333333334, 'precision': 0.739964221824687, 'recall': 0.8283333333333334, 'f1': 0.7699564933083395}
