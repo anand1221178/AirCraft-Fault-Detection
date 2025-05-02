@@ -2,13 +2,13 @@ Engine Fault Classification Report for Model: Vanilla_DBN
 ==================================================
                     precision    recall  f1-score   support
 
-            Normal       0.42      0.47      0.45        72
-    OilLeak_Active       0.88      0.82      0.85       456
-BearingWear_Active       0.46      0.61      0.52        72
+            Normal       0.00      0.00      0.00      1080
+    OilLeak_Active       1.00      0.08      0.14      6840
+BearingWear_Active       0.13      1.00      0.23      1080
 
-          accuracy                           0.75       600
-         macro avg       0.59      0.63      0.61       600
-      weighted avg       0.77      0.75      0.76       600
+          accuracy                           0.18      9000
+         macro avg       0.38      0.36      0.12      9000
+      weighted avg       0.78      0.18      0.14      9000
 
 ==================================================
-Overall Weighted Metrics: {'accuracy': 0.75, 'precision': 0.7727924528301887, 'recall': 0.75, 'f1': 0.7590868079289131}
+Overall Weighted Metrics: {'accuracy': 0.1781111111111111, 'precision': 0.775313718539525, 'recall': 0.1781111111111111, 'f1': 0.13512813137456314}

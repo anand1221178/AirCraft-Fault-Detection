@@ -49,9 +49,6 @@ def define_dbn_structure():
     print("-------------------------------")
     return dbn
 
-from pgmpy.factors.discrete import TabularCPD
-import numpy as np
-
 def define_initial_cpts():
     """
     Defines updated CPTs for the DBN (v2.1) — sharper fault signal response,
@@ -65,25 +62,44 @@ def define_initial_cpts():
     cpt_list.append(TabularCPD(('EGT_Sensor_Health', 0), 3, [[0.95], [0.03], [0.02]]))
     cpt_list.append(TabularCPD(('Vibration_Sensor_Health', 0), 3, [[0.95], [0.03], [0.02]]))
 
-    # --- Observation CPTs (Time 0) ---
-    vib_obs_values = [
-        [0.70, 0.10, 0.05,    0.50, 0.25, 0.20,    0.34, 0.34, 0.34],
-        [0.25, 0.50, 0.20,    0.40, 0.45, 0.35,    0.33, 0.33, 0.33],
-        [0.05, 0.40, 0.75,    0.10, 0.30, 0.45,    0.33, 0.33, 0.33]
-    ]
-    cpt_list.append(TabularCPD(('Vib1_IPS_Discrete', 0), 3, vib_obs_values, 
+    # --- Observation CPTs ---
+
+    # Vibration sensor obs: Vib1 and Vib2
+    vib_obs_values = np.array([
+        # 9 rows (parent combos), 3 values per row
+        [0.70, 0.25, 0.05],
+        [0.10, 0.50, 0.40],
+        [0.05, 0.20, 0.75],
+        [0.34, 0.33, 0.33],
+        [0.25, 0.40, 0.35],
+        [0.20, 0.40, 0.40],
+        [0.33, 0.33, 0.33],
+        [0.33, 0.33, 0.33],
+        [0.33, 0.33, 0.33]
+    ]).T
+
+    cpt_list.append(TabularCPD(('Vib1_IPS_Discrete', 0), 3, vib_obs_values,
         evidence=[('Engine_Core_Health', 0), ('Vibration_Sensor_Health', 0)], evidence_card=[3, 3]))
-    cpt_list.append(TabularCPD(('Vib2_IPS_Discrete', 0), 3, vib_obs_values, 
+    cpt_list.append(TabularCPD(('Vib2_IPS_Discrete', 0), 3, vib_obs_values,
         evidence=[('Engine_Core_Health', 0), ('Vibration_Sensor_Health', 0)], evidence_card=[3, 3]))
 
-    egt_obs_values = [
-        [0.10, 0.10, 0.10,    0.25, 0.25, 0.25,    0.34, 0.34, 0.34],
-        [0.85, 0.65, 0.50,    0.60, 0.50, 0.45,    0.33, 0.33, 0.33],
-        [0.05, 0.25, 0.40,    0.15, 0.25, 0.30,    0.33, 0.33, 0.33]
-    ]
-    cpt_list.append(TabularCPD(('EGT_C_Discrete', 0), 3, egt_obs_values, 
+    # EGT sensor obs
+    egt_obs_values = np.array([
+        [0.10, 0.85, 0.05],
+        [0.10, 0.65, 0.25],
+        [0.10, 0.50, 0.40],
+        [0.30, 0.45, 0.25],
+        [0.20, 0.55, 0.25],
+        [0.15, 0.40, 0.45],
+        [0.33, 0.33, 0.33],
+        [0.33, 0.33, 0.33],
+        [0.33, 0.33, 0.33]
+    ]).T
+
+    cpt_list.append(TabularCPD(('EGT_C_Discrete', 0), 3, egt_obs_values,
         evidence=[('Engine_Core_Health', 0), ('EGT_Sensor_Health', 0)], evidence_card=[3, 3]))
 
+    # Oil pressure: strong indicator
     oilp_obs_values = [
         [0.01, 0.98],
         [0.98, 0.01],
@@ -92,6 +108,7 @@ def define_initial_cpts():
     cpt_list.append(TabularCPD(('OilPressure_PSI_Discrete', 0), 3, oilp_obs_values,
         evidence=[('Lubrication_System_Health', 0)], evidence_card=[2]))
 
+    # N2 RPM: modest shift
     n2_obs_values = [
         [0.10, 0.15, 0.25],
         [0.85, 0.75, 0.65],
@@ -112,17 +129,18 @@ def define_initial_cpts():
         [0.02, 0.95]
     ], evidence=[('Lubrication_System_Health', 0)], evidence_card=[2]))
 
+    # Sensor Health transitions
     sensor_sh_trans = [
-        [0.95, 0.10, 0.02],
-        [0.04, 0.80, 0.10],
-        [0.01, 0.10, 0.88]
+        [0.91, 0.15, 0.03],  # From OK
+        [0.07, 0.80, 0.10],  # From Degraded
+        [0.02, 0.05, 0.87]   # From Failed
     ]
     cpt_list.append(TabularCPD(('EGT_Sensor_Health', 1), 3, sensor_sh_trans,
         evidence=[('EGT_Sensor_Health', 0)], evidence_card=[3]))
     cpt_list.append(TabularCPD(('Vibration_Sensor_Health', 1), 3, sensor_sh_trans,
         evidence=[('Vibration_Sensor_Health', 0)], evidence_card=[3]))
 
-    # --- Observations at t=1: reuse same CPTs ---
+    # --- Observations at t=1: same as t=0 ---
     cpt_list.append(TabularCPD(('Vib1_IPS_Discrete', 1), 3, vib_obs_values,
         evidence=[('Engine_Core_Health', 1), ('Vibration_Sensor_Health', 1)], evidence_card=[3, 3]))
     cpt_list.append(TabularCPD(('Vib2_IPS_Discrete', 1), 3, vib_obs_values,
@@ -134,7 +152,7 @@ def define_initial_cpts():
     cpt_list.append(TabularCPD(('N2_PctRPM_Discrete', 1), 3, n2_obs_values,
         evidence=[('Engine_Core_Health', 1)], evidence_card=[3]))
 
-    print(f"Defined {len(cpt_list)} CPTs for the improved DBN model.")
+    print(f"Defined {len(cpt_list)} CPTs for the finalized DBN.")
     return cpt_list
 
 

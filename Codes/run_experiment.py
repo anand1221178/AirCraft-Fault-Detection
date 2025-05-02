@@ -137,8 +137,8 @@ if __name__ == "__main__":
             # )
 
             df_raw = simulate_engine_data(
-                duration_minutes=2,  # TEMPORARY DEBUG SETTING (~120 steps)
-                frequency_hz=1,
+                duration_minutes = 30,  # TEMPORARY DEBUG SETTING (~120 steps)
+                frequency_hz =1 ,
                 scenario=scenario,
             )
 

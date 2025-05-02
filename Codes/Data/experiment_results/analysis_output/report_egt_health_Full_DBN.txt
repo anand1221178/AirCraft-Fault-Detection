@@ -2,13 +2,13 @@ EGT Sensor Health Classification Report for Model: Full_DBN
 ==================================================
               precision    recall  f1-score   support
 
-          OK       0.00      0.00      0.00        15
-    Degraded       0.00      0.00      0.00        28
-      Failed       0.93      1.00      0.96       557
+          OK       0.00      0.00      0.00       219
+    Degraded       0.00      0.00      0.00       430
+      Failed       0.93      1.00      0.96      8351
 
-    accuracy                           0.93       600
-   macro avg       0.31      0.33      0.32       600
-weighted avg       0.86      0.93      0.89       600
+    accuracy                           0.93      9000
+   macro avg       0.31      0.33      0.32      9000
+weighted avg       0.86      0.93      0.89      9000
 
 ==================================================
-Overall Weighted Metrics: {'accuracy': 0.9283333333333333, 'precision': 0.8618027777777778, 'recall': 0.9283333333333333, 'f1': 0.893831748775569}
+Overall Weighted Metrics: {'accuracy': 0.9278888888888889, 'precision': 0.8609777901234568, 'recall': 0.9278888888888889, 'f1': 0.8931819619746539}
