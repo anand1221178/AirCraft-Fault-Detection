@@ -51,7 +51,7 @@
             Summarizes the DBN's performance on detecting engine-level faults. Focus on high recall for OilLeaks and good F1 for BearingWear.
         </div>
         <a href="/report/report_engine_Full_DBN.txt" download>Download Report</a>
-        <pre>{{ reports["Engine (Full DBN)"] }}</pre>
+        <div>{{ reports["Engine (Full DBN)"] | safe }}</div>
         <img src="/images/cm_engine_Full_DBN.png">
 
         <h2>EGT Sensor Health</h2>
@@ -59,7 +59,7 @@
             Evaluates the health classification of the EGT sensor: OK, Degraded, or Failed. Good models should distinguish Degraded vs Failed clearly.
         </div>
         <a href="/report/report_egt_health_Full_DBN.txt" download>Download Report</a>
-        <pre>{{ reports["EGT Sensor Health"] }}</pre>
+        <div>{{ reports["EGT Sensor Health"] | safe }}</div>
         <img src="/images/cm_egt_health_Full_DBN.png">
 
         <h2>Vibration Sensor Health</h2>
@@ -67,7 +67,7 @@
             Tracks the vibration sensor's condition over time. Useful for identifying hidden degradation not visible from direct vibration alone.
         </div>
         <a href="/report/report_vib_health_Full_DBN.txt" download>Download Report</a>
-        <pre>{{ reports["Vibration Sensor Health"] }}</pre>
+        <div>{{ reports["Vibration Sensor Health"] | safe }}</div>
         <img src="/images/cm_vib_health_Full_DBN.png">
     </div>
 
@@ -77,7 +77,7 @@
         </div>
         <h2>Engine Fault Report</h2>
         <a href="/report/report_engine_Vanilla_DBN.txt" download>Download Report</a>
-        <pre>{{ reports.get("Engine (Vanilla DBN)", "[Missing]") }}</pre>
+        <div>{{ reports.get("Engine (Vanilla DBN)", "[Missing]") | safe }}</div>
         <img src="/images/cm_engine_Vanilla_DBN.png">
     </div>
 
@@ -87,7 +87,7 @@
         </div>
         <h2>Engine Fault Report</h2>
         <a href="/report/report_engine_Rule_Based.txt" download>Download Report</a>
-        <pre>{{ reports.get("Engine (Rule-Based)", "[Missing]") }}</pre>
+        <div>{{ reports.get("Engine (Rule-Based)", "[Missing]") | safe }}</div>
         <img src="/images/cm_engine_Rule_Based.png">
     </div>
 
