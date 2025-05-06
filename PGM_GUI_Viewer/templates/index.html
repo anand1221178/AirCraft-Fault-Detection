@@ -1,0 +1,110 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Evaluation Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 2em; background-color: #f0f0f5; }
+        h1 { font-size: 28px; }
+        h2 { margin-top: 2em; }
+        pre { background-color: #fff; border: 1px solid #ccc; padding: 1em; white-space: pre-wrap; }
+        img { max-width: 600px; margin: 1em 0; border: 1px solid #ccc; }
+        .tab-buttons button {
+            margin: 0.2em;
+            padding: 0.5em 1em;
+            background-color: #ddd;
+            border: none;
+            cursor: pointer;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .explanation { font-size: 0.9em; background: #e9ecef; padding: 0.8em; border-left: 5px solid #007bff; margin-bottom: 1em; }
+    </style>
+    <script>
+        function showTab(id) {
+            document.querySelectorAll('.tab-content').forEach(div => div.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        function updatePlot() {
+            const val = document.getElementById('scenarioSelect').value;
+            document.getElementById('inferenceImg').src = "/scenario_plot/" + val;
+        }
+    </script>
+</head>
+<body>
+    <h1>Aircraft Engine Fault Detection – Evaluation Results</h1>
+
+    <div class="tab-buttons">
+        <button onclick="showTab('tab_fulldbn')">Full DBN</button>
+        <button onclick="showTab('tab_vanilla')">Vanilla DBN</button>
+        <button onclick="showTab('tab_rule')">Rule-Based</button>
+    </div>
+
+    <div id="tab_fulldbn" class="tab-content active">
+        <div class="explanation">
+            <strong>Full DBN:</strong> A domain-informed dynamic Bayesian network integrating engine subsystems and sensor health transitions. This model uses MRF smoothing and expert-defined CPTs for robust fault tracking.
+        </div>
+
+        <h2>Engine Fault Report</h2>
+        <div class="explanation">
+            Summarizes the DBN's performance on detecting engine-level faults. Focus on high recall for OilLeaks and good F1 for BearingWear.
+        </div>
+        <a href="/report/report_engine_Full_DBN.txt" download>Download Report</a>
+        <pre>{{ reports["Engine (Full DBN)"] }}</pre>
+        <img src="/images/cm_engine_Full_DBN.png">
+
+        <h2>EGT Sensor Health</h2>
+        <div class="explanation">
+            Evaluates the health classification of the EGT sensor: OK, Degraded, or Failed. Good models should distinguish Degraded vs Failed clearly.
+        </div>
+        <a href="/report/report_egt_health_Full_DBN.txt" download>Download Report</a>
+        <pre>{{ reports["EGT Sensor Health"] }}</pre>
+        <img src="/images/cm_egt_health_Full_DBN.png">
+
+        <h2>Vibration Sensor Health</h2>
+        <div class="explanation">
+            Tracks the vibration sensor's condition over time. Useful for identifying hidden degradation not visible from direct vibration alone.
+        </div>
+        <a href="/report/report_vib_health_Full_DBN.txt" download>Download Report</a>
+        <pre>{{ reports["Vibration Sensor Health"] }}</pre>
+        <img src="/images/cm_vib_health_Full_DBN.png">
+    </div>
+
+    <div id="tab_vanilla" class="tab-content">
+        <div class="explanation">
+            <strong>Vanilla DBN:</strong> A simpler baseline model without sensor health nodes or temporal refinement. Useful for contrast with Full DBN.
+        </div>
+        <h2>Engine Fault Report</h2>
+        <a href="/report/report_engine_Vanilla_DBN.txt" download>Download Report</a>
+        <pre>{{ reports.get("Engine (Vanilla DBN)", "[Missing]") }}</pre>
+        <img src="/images/cm_engine_Vanilla_DBN.png">
+    </div>
+
+    <div id="tab_rule" class="tab-content">
+        <div class="explanation">
+            <strong>Rule-Based System:</strong> Uses heuristic thresholds on raw features. Helps understand what DBNs improve upon.
+        </div>
+        <h2>Engine Fault Report</h2>
+        <a href="/report/report_engine_Rule_Based.txt" download>Download Report</a>
+        <pre>{{ reports.get("Engine (Rule-Based)", "[Missing]") }}</pre>
+        <img src="/images/cm_engine_Rule_Based.png">
+    </div>
+
+    <hr>
+    <h2>Inference Plot Viewer</h2>
+    <div class="explanation">
+        Select a scenario to view time-series inference of subsystem states. Track transitions between OK → Degraded → Failed over time.
+    </div>
+    <label for="scenarioSelect">Choose Scenario:</label>
+    <select id="scenarioSelect" onchange="updatePlot()">
+        <option value="dbn_inference_Normal.png">Normal</option>
+        <option value="dbn_inference_OilLeak.png">Oil Leak</option>
+        <option value="dbn_inference_BearingWear.png">Bearing Wear</option>
+        <option value="dbn_inference_EGTSensorFail.png">EGT Sensor Fail</option>
+        <option value="dbn_inference_VibSensorFail.png">Vibration Sensor Fail</option>
+    </select>
+    <br><br>
+    <img id="inferenceImg" src="/scenario_plot/dbn_inference_Normal.png" alt="Inference Plot">
+</body>
+</html>
