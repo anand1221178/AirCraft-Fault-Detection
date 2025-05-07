@@ -3,16 +3,26 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib.legend
-import warnings  # To suppress UserWarnings from matplotlib about NaNs
+import warnings 
 warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
 
-# Import configuration parameters
+# Import configuration parameters - contains thresholds for discretization and sensor details
 from config import PARAMS, DROPOUT_RATE
 
 # --- Helper Function ---
 def discretize_value(value, low_thresh, high_thresh):
-    """Discretize a single sensor reading into 'Low', 'Medium', 'High'."""
-    if pd.notna(value):
+    """
+    Discretize a single sensor reading into 'Low', 'Medium', 'High' categories.
+    
+    Args:
+        value: The raw sensor reading
+        low_thresh: Threshold below which value is classified as 'Low'
+        high_thresh: Threshold above which value is classified as 'High'
+        
+    Returns:
+        String representing discretized value ('Low', 'Medium', or 'High') or NaN for missing values
+    """
+    if pd.notna(value):  # Check if the value is not NaN
         if value < low_thresh:
             return 'Low'
         elif value > high_thresh:
@@ -20,59 +30,49 @@ def discretize_value(value, low_thresh, high_thresh):
         else:
             return 'Medium'
     else:
-        return np.nan
+        return np.nan  # Preserve NaN values
 
 # --- Main Discretization Function ---
 def discretize_data(df, params):
-    """Discretize sensor readings in the DataFrame."""
-    discretized_df = df.copy()
+    """
+    Discretize all sensor readings in the DataFrame based on parameter thresholds.
+    
+    Args:
+        df: DataFrame with raw sensor readings
+        params: Dictionary containing thresholds for each sensor type
+        
+    Returns:
+        DataFrame with original columns plus additional discretized columns
+    """
+    discretized_df = df.copy()  # Create a copy to avoid modifying the original data
+    
+    # Loop through each sensor type defined in the parameters
     for sensor, p in params.items():
+        # Special handling for vibration sensors (has two channels: Vib1 and Vib2)
         if sensor == 'Vibration':
-            discretized_df['Vib1_IPS_Discrete'] = discretized_df['Vib1_IPS'].apply(lambda x: discretize_value(x, p['low_thresh'], p['high_thresh']))
-            discretized_df['Vib2_IPS_Discrete'] = discretized_df['Vib2_IPS'].apply(lambda x: discretize_value(x, p['low_thresh'], p['high_thresh']))
+            discretized_df['Vib1_IPS_Discrete'] = discretized_df['Vib1_IPS'].apply(
+                lambda x: discretize_value(x, p['low_thresh'], p['high_thresh']))
+            discretized_df['Vib2_IPS_Discrete'] = discretized_df['Vib2_IPS'].apply(
+                lambda x: discretize_value(x, p['low_thresh'], p['high_thresh']))
         else:
+            # For other sensors, create the column name and discretize the values
             col_name = f"{sensor}_{p['unit'].replace('%','Pct')}"
-            discretized_df[f"{col_name}_Discrete"] = discretized_df[col_name].apply(lambda x: discretize_value(x, p['low_thresh'], p['high_thresh']))
+            discretized_df[f"{col_name}_Discrete"] = discretized_df[col_name].apply(
+                lambda x: discretize_value(x, p['low_thresh'], p['high_thresh']))
     return discretized_df
 
 # --- Plotting Function ---
 def plot_raw_and_discretized(df, sensor, p, scenario):
-    """Plot raw and discretized sensor data for validation."""
-    fig, ax1 = plt.subplots(figsize=(15, 6))
-    ax1.set_title(f"Raw and Discretized {sensor} Data - Scenario: {scenario} (Dropout={DROPOUT_RATE*100}%)", fontsize=16)
+    """
+    Create and save plots showing both raw and discretized sensor data.
     
-    # Plot raw sensor data
-    if sensor == 'Vibration':
-        ax1.plot(df['Timestamp'], df['Vib1_IPS'], label='Vib1_IPS (Raw)', alpha=0.7, marker='.', linestyle='-', markersize=1)
-        ax1.plot(df['Timestamp'], df['Vib2_IPS'], label='Vib2_IPS (Raw)', alpha=0.7, marker='.', linestyle='-', markersize=1)
-        ax1.axhline(p['low_thresh'], color='orange', linestyle=':', label=f'Low Threshold ({p["low_thresh"]})')
-        ax1.axhline(p['high_thresh'], color='red', linestyle=':', label=f'High Threshold ({p["high_thresh"]})')
-        ax1.set_ylabel(f"Vibration ({p['unit']})")
-        ax1.legend(loc='upper left')
-        
-        # Create a secondary y-axis for discretized data
-        ax2 = ax1.twinx()
-        # Map discrete values to numerical values for plotting
-        discrete_mapping = {'Low': 0, 'Medium': 1, 'High': 2}
-        ax2.plot(df['Timestamp'], df['Vib1_IPS_Discrete'].map(discrete_mapping), label='Vib1_IPS (Discrete)', color='green', alpha=0.7, marker='x', linestyle='-', markersize=3)
-        ax2.plot(df['Timestamp'], df['Vib2_IPS_Discrete'].map(discrete_mapping), label='Vib2_IPS (Discrete)', color='blue', alpha=0.7, marker='x', linestyle='-', markersize=3)
-        ax2.set_yticks([0, 1, 2])
-        ax2.set_yticklabels(['Low', 'Medium', 'High'])
-        ax2.set_ylabel("Discretized Vibration Level")
-        ax2.legend(loc='upper right')
-    else:
-        col_name = f"{sensor}_{p['unit'].replace('%','Pct')}"
-        ax1.plot(df['Timestamp'], df[col_name], label=f'{col_name} (Raw)', alpha=0.7, marker='.', linestyle='-', markersize=1)
-        ax1.axhline(p['low_thresh'], color='orange', linestyle=':', label=f'Low ({p["low_thresh"]})')
-        ax1.axhline(p['high_thresh'], color='red', linestyle=':', label=f'High ({p["high_thresh"]})')
-        ax1.set_ylabel(f"{sensor} ({p['unit']})")
-        ax1.legend(loc='upper left')
-        
-        # Create a secondary y-axis for discretized data
-        ax2 = ax1.twinx()
-        # Map discrete values to numerical values for plotting
-        discrete_mapping = {'Low': 0, 'Medium': 1, 'High': 2}
-        ax2.plot(df['Timestamp'], df[f"{col_name}_Discrete"].map(discrete_mapping), label=f'{col_name} (Discrete)', color='green', alpha=0.7, marker='x', linestyle='-', markersize=3)
+    Args:
+        df: DataFrame containing the data for a specific scenario
+        sensor: The sensor type being plotted
+        p: Parameters for this sensor (thresholds, units)
+        scenario: The fault scenario name for labeling
+    """
+    fig, ax1 = plt.subplots(figsize=(15, 6))
         ax2.set_yticks([0, 1, 2])
         ax2.set_yticklabels(['Low', 'Medium', 'High'])
         ax2.set_ylabel("Discretized Level")

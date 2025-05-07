@@ -21,7 +21,7 @@ def define_dbn_structure():
         (('Engine_Core_Health', 0), ('Vib1_IPS_Discrete', 0)),
         (('Engine_Core_Health', 0), ('Vib2_IPS_Discrete', 0)),
         (('Lubrication_System_Health', 0), ('OilPressure_PSI_Discrete', 0)),
-        # ADDED: Sensor health influences sensors
+        # Sensor health influences sensors
         (('EGT_Sensor_Health', 0), ('EGT_C_Discrete', 0)),
         (('Vibration_Sensor_Health', 0), ('Vib1_IPS_Discrete', 0)),
         (('Vibration_Sensor_Health', 0), ('Vib2_IPS_Discrete', 0)),
@@ -38,13 +38,13 @@ def define_dbn_structure():
         (('Engine_Core_Health', 1), ('Vib1_IPS_Discrete', 1)),
         (('Engine_Core_Health', 1), ('Vib2_IPS_Discrete', 1)),
         (('Lubrication_System_Health', 1), ('OilPressure_PSI_Discrete', 1)),
-         # ADDED: Sensor health influences sensors @ t=1
+         # Sensor health influences sensors @ t=1
         (('EGT_Sensor_Health', 1), ('EGT_C_Discrete', 1)),
         (('Vibration_Sensor_Health', 1), ('Vib1_IPS_Discrete', 1)),
         (('Vibration_Sensor_Health', 1), ('Vib2_IPS_Discrete', 1)),
     ]
     dbn = DynamicBayesianNetwork(dbn_structure)
-    print("--- Nodes created by DBN init ---") # Keep for debugging
+    print("--- Nodes created by DBN init ---")
     print(sorted(dbn.nodes()))
     print("-------------------------------")
     return dbn
@@ -108,7 +108,7 @@ def define_initial_cpts():
     cpt_list.append(TabularCPD(('OilPressure_PSI_Discrete', 0), 3, oilp_obs_values,
         evidence=[('Lubrication_System_Health', 0)], evidence_card=[2]))
 
-    # N2 RPM: modest shift
+    # N2 RPM: slight shift
     n2_obs_values = [
         [0.10, 0.15, 0.25],
         [0.85, 0.75, 0.65],
@@ -186,11 +186,11 @@ def visualize_dbn(dbn):
     nodes_t0 = [n for n in dbn.nodes() if n[1] == 0]
     nodes_t1 = [n for n in dbn.nodes() if n[1] == 1]
 
-    # Define node types for coloring (optional)
+    # Define node types for coloring
     hidden_nodes = [n for n in dbn.nodes() if 'Health' in n[0]]
     observed_nodes = [n for n in dbn.nodes() if n not in hidden_nodes]
 
-    # Draw nodes with different colors maybe
+    # Draw nodes with different colors
     nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in hidden_nodes if n[1]==0], node_color='lightcoral', node_size=4500, label='Hidden t=0')
     nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in observed_nodes if n[1]==0], node_color='lightblue', node_size=4500, label='Observed t=0')
     nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in hidden_nodes if n[1]==1], node_color='salmon', node_size=4500, label='Hidden t=1')
@@ -204,19 +204,19 @@ def visualize_dbn(dbn):
     edge_width = 2.0 # Thicker lines
     arrow_size = 25 # Larger arrows
 
-    # --- REMOVED connectionstyle from these calls ---
+   
     nx.draw_networkx_edges(dbn, pos, edgelist=intra_slice_edges, edge_color='gray', style='dashed',
                            width=edge_width, arrows=True, arrowsize=arrow_size)
     nx.draw_networkx_edges(dbn, pos, edgelist=inter_slice_edges, edge_color='red', style='solid',
                            width=edge_width, arrows=True, arrowsize=arrow_size)
-    # --- End of Change ---
+    
 
     # Draw labels (
     labels = {node: f"{node[0].replace('_Discrete','').replace('_IPS','').replace('_PctRPM','').replace('_PSI','').replace('_C','')}\n(t={node[1]})" for node in dbn.nodes()}
     nx.draw_networkx_labels(dbn, pos, labels=labels, font_size=9, font_weight='bold')
 
     plt.title("Dynamic Bayesian Network Structure (Template: t=0 to t=1)", fontsize=18)
-    # Annotate edge types if graphviz wasn't used 
+    
     if not graphviz_available:
         plt.text(0.5, -0.05, 'Dashed: Intra-slice | Solid Red: Inter-slice (t=0 -> t=1)',
                  transform=plt.gca().transAxes, ha='center', fontsize=10)
@@ -244,7 +244,7 @@ def check_dbn(dbn):
         print(f"DBN Model Check Failed with Error: {e}")
         return False
 
-# --- (Keep if __name__ == "__main__" as it was) ---
+
 if __name__ == "__main__":
     print("--- Defining DBN Structure ---")
     dbn = define_dbn_structure()

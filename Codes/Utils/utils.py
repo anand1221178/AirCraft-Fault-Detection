@@ -1,5 +1,3 @@
-# In utils.py or evaluation.py
-
 import pandas as pd
 import numpy as np
 
@@ -25,6 +23,7 @@ def map_probabilities_to_predictions(results_df,
     Returns:
         pd.Series: A series with the final discrete prediction for each timestep.
     """
+    # Initialize an empty series to store predictions for each time step
     predictions = pd.Series(index=results_df.index, dtype=str)
     
     # Define probability columns expected (handle potential missing columns gracefully)
@@ -40,6 +39,7 @@ def map_probabilities_to_predictions(results_df,
     p_vib_sh_d  = f"P(Vibration_Sensor_Health=Degraded)"
     p_vib_sh_f  = f"P(Vibration_Sensor_Health=Failed)"
 
+    # Iterate through each row in the results DataFrame
     for index, row in results_df.iterrows():
         # Check for critical component failures first
         if p_lub_fail in row and row[p_lub_fail] > lub_fail_thresh:
@@ -81,8 +81,10 @@ if __name__ == "__main__":
      dummy_results_df = pd.DataFrame(dummy_data)
      dummy_results_df.set_index('TimeStep', inplace=True)
 
+     # Print the dummy results DataFrame
      print("Dummy Results DF:\n", dummy_results_df)
      
+     # Generate predictions based on the dummy data
      final_preds = map_probabilities_to_predictions(dummy_results_df)
      print("\nFinal Predictions:\n", final_preds)
      # Expected: Normal, OilLeak, BearingWear, EGTSensorFail, VibSensorFail

@@ -42,7 +42,7 @@ def predict_rule_based(df_discrete_slice,
     
     return predictions
 
-# Example Usage (for testing)
+# Example Usage - for testing
 if __name__ == "__main__":
      dummy_discrete = {
          'OilPressure_PSI_Discrete': ['Medium', 'Medium', 'Low', 'Low', 'Low', 'Low', 'Low', 'Medium', 'Medium', 'Medium'],
@@ -54,4 +54,3 @@ if __name__ == "__main__":
      rule_preds = predict_rule_based(dummy_df, oil_low_thresh_steps=3, vib_high_thresh_steps=3)
      print("Dummy Data:\n", dummy_df)
      print("\nRule-Based Predictions:\n", rule_preds)
-     # Expected: Normal, Normal, Normal, Normal, OilLeak, OilLeak, OilLeak, BearingWear, BearingWear, BearingWear

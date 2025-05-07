@@ -118,6 +118,3 @@ def define_vanilla_initial_cpts():
 
     print(f"Defined {len(cpt_list)} CPTs for the Vanilla DBN model.") # Should be 14
     return cpt_list
-
-# You don't necessarily need to run this file directly, 
-# but import these functions into your experiment script.

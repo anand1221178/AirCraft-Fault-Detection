@@ -23,7 +23,6 @@ def apply_simple_mrf_smoother(vib1_raw, vib2_raw, iterations=5, strength=0.5, pr
     print(f"Applying MRF-like smoothing: iterations={iterations}, strength={strength}")
     
     # Handle NaNs: Forward fill then backward fill to estimate missing values for smoothing
-    # Alternatively, could skip smoothing where NaNs exist, but filling allows smoother output
     vib1_filled = vib1_raw.ffill().bfill()
     vib2_filled = vib2_raw.ffill().bfill()
     
@@ -49,7 +48,7 @@ def apply_simple_mrf_smoother(vib1_raw, vib2_raw, iterations=5, strength=0.5, pr
             new_vib1 = vib1_prev_iter[i] - adjustment
             new_vib2 = vib2_prev_iter[i] + adjustment
 
-            # Optional: Preserve the local mean (prevents overall drift)
+            #Preserve the local mean (prevents overall drift)
             if preserve_mean:
                  mean_adjustment = ((new_vib1 + new_vib2) - (vib1_prev_iter[i] + vib2_prev_iter[i])) / 2.0
                  new_vib1 -= mean_adjustment
@@ -62,11 +61,10 @@ def apply_simple_mrf_smoother(vib1_raw, vib2_raw, iterations=5, strength=0.5, pr
     vib1_final = pd.Series(vib1_smooth, index=vib1_raw.index, name='Vib1_IPS_Smoothed')
     vib2_final = pd.Series(vib2_smooth, index=vib2_raw.index, name='Vib2_IPS_Smoothed')
 
-    # --- Optional: Re-introduce NaNs where they originally existed ---
+
     # This ensures that actual sensor dropouts are still dropouts after smoothing.
     vib1_final[vib1_raw.isna()] = np.nan
     vib2_final[vib2_raw.isna()] = np.nan
-    # --- End Optional ---
     
     print("Smoothing complete.")
     return vib1_final, vib2_final
@@ -74,7 +72,7 @@ def apply_simple_mrf_smoother(vib1_raw, vib2_raw, iterations=5, strength=0.5, pr
 # --- Validation Part ---
 if __name__ == "__main__":
     print("--- MRF Validation ---")
-    # Setup (Make sure these paths are correct relative to mrf_model.py)
+    # Setup
     DATA_DIR = '../Data' 
     RAW_DATA_FILE = os.path.join(DATA_DIR, 'sim_data_raw.csv')
     PLOT_SAVE_DIR = os.path.join(DATA_DIR, 'mrf_validation_plots')
@@ -92,7 +90,7 @@ if __name__ == "__main__":
         print(f"Error loading raw data: {e}")
         exit()
 
-    # Select a scenario with some noise/variation (e.g., BearingWear or Normal)
+    # Select a scenario with some noise/variation 
     scenario_to_plot = 'BearingWear' # Or 'Normal'
     plot_slice_df = df_raw[df_raw['Scenario'] == scenario_to_plot].head(200) # Plot first 200 steps
 

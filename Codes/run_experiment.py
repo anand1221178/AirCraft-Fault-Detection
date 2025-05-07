@@ -7,9 +7,8 @@ import time
 import sys
 import random
 
-# --- Add project subdirectories to Python's search path ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# Assumes run_experiments.py is in the 'Codes' directory alongside subdirs
+
 sys.path.append(os.path.join(script_dir, 'DBN'))
 sys.path.append(os.path.join(script_dir, 'PreProcessing'))
 sys.path.append(os.path.join(script_dir, 'Utils'))
@@ -27,12 +26,10 @@ try:
     # DBN Models
     from dbn_model import define_dbn_structure as define_full_dbn_structure
     from dbn_model import define_initial_cpts as define_full_initial_cpts
-    # Incorporate Vanilla DBN functions here or import from vanilla_dbn_model.py
+    # Incorporate Vanilla DBN functions
     from vanilla_dbn import define_vanilla_dbn_structure, define_vanilla_initial_cpts 
     # Inference
     from dbn_inference import prepare_evidence_sequence, run_dbn_inference, format_results_to_dataframe, OBS_STATE_MAP, OBSERVATION_VARS 
-    #from dbn_inference import FULL_DBN_HIDDEN_VARS, FULL_DBN_STATE_NAMES # Use maps defined there
-    #from dbn_inference import VANILLA_DBN_HIDDEN_VARS, VANILLA_DBN_STATE_NAMES
     # Prediction Logic
     from utils import map_probabilities_to_predictions 
     # Rule-Based Baseline
@@ -67,12 +64,11 @@ VANILLA_DBN_STATE_NAMES = {
     'Engine_Core_Health': ['OK', 'Warn', 'Fail'],
     'Lubrication_System_Health': ['OK', 'Fail']
 }
-# Make sure OBS_STATE_MAP and OBSERVATION_VARS are still imported or defined here if needed globally
-# (It seems they are imported from dbn_inference correctly, which is fine)
+
 
 
 # --- Experiment Configuration ---
-N_RUNS = 1 # Number of simulation runs per scenario (adjust as needed)
+N_RUNS = 1 # Number of simulation runs per scenario
 SCENARIOS = ['Normal', 'OilLeak', 'BearingWear', 'EGTSensorFail', 'VibSensorFail']
 # Output file
 RESULTS_DIR = os.path.join(script_dir, 'Data', 'experiment_results')
@@ -87,7 +83,7 @@ prediction_parameters = { # Thresholds used by map_probabilities_to_predictions
     'lub_fail_thresh': 0.6, 
     'egt_sh_fail_thresh': 0.7, 'vib_sh_fail_thresh': 0.7
 }
-# Create params dict for vanilla DBN predictions (excluding sensor health thresholds)
+# Create params dict for vanilla DBN predictions
 vanilla_prediction_params = {k:v for k,v in prediction_parameters.items() if 'sh_fail' not in k}
 
 rule_based_parameters = {'oil_low_thresh_steps': 5, 'vib_high_thresh_steps': 5}
@@ -98,7 +94,7 @@ if __name__ == "__main__":
     
     all_results = [] # List to store results DataFrames from each run
 
-    # --- Initialize DBN Models (Once) ---
+    # --- Initialize DBN Models ---
     print("--- Initializing DBN Models ---")
     try:
         dbn_full = define_full_dbn_structure()
@@ -128,16 +124,9 @@ if __name__ == "__main__":
             
             # 1. Simulate Data
             print("    Simulating data...")
-            # Use run_id as seed for reproducibility if sim_data supports it
-            # df_raw = simulate_engine_data(
-            #     duration_minutes=SIMULATION_DURATION_MINUTES,
-            #     frequency_hz=DATA_FREQUENCY_HZ,
-            #     scenario=scenario,
-            #     # Add seed=run_id if your simulation function accepts it
-            # )
 
             df_raw = simulate_engine_data(
-                duration_minutes = 30,  # TEMPORARY DEBUG SETTING (~120 steps)
+                duration_minutes = 30, 
                 frequency_hz =1 ,
                 scenario=scenario,
             )
@@ -172,13 +161,13 @@ if __name__ == "__main__":
             predictions_vanilla = pd.Series(dtype=str)
             try:
                 # a) Discretize (Raw Vib)
-                df_discrete_raw = discretize_data(df_raw, discretization_params) # Use original raw data
+                df_discrete_raw = discretize_data(df_raw, discretization_params) #Original Raw Data
                 # b) DBN Inference (Vanilla Model)
                 evidence_vanilla = prepare_evidence_sequence(df_discrete_raw, OBSERVATION_VARS, OBS_STATE_MAP)
                 if evidence_vanilla:
                     inference_results_vanilla = run_dbn_inference(dbn_vanilla, evidence_vanilla, VANILLA_DBN_HIDDEN_VARS)
                     results_vanilla_dbn = format_results_to_dataframe(inference_results_vanilla, VANILLA_DBN_HIDDEN_VARS, VANILLA_DBN_STATE_NAMES)
-                    # c) Prediction Mapping (using simplified params/logic)
+                    # c) Prediction Mapping
                     predictions_vanilla = map_probabilities_to_predictions(results_vanilla_dbn, **vanilla_prediction_params)
                 else: predictions_vanilla = pd.Series('Error_NoEvidence', index=df_raw.index)
             except Exception as e:
@@ -186,15 +175,15 @@ if __name__ == "__main__":
                  predictions_vanilla = pd.Series('Error_PipelineFail', index=df_raw.index)
 
 
-            # --- Run Rule-Based Model (Uses Smoothed Discrete Data) ---
+            # --- Run Rule-Based Model ---
             print("    Running Rule-Based Model...")
             predictions_rule = pd.Series(dtype=str)
             try:
-                # Need smoothed discrete data from Full pipeline run (step 2a)
+                # Need smoothed discrete data from Full pipeline run 
                 if 'df_discrete_smoothed' in locals():
                      predictions_rule = predict_rule_based(df_discrete_smoothed, **rule_based_parameters)
                 else:
-                     # Fallback: discretize again if needed (less efficient)
+                     # Fallback
                      print("      Re-discretizing for rule-based (fallback)...")
                      if 'df_raw_mrf' not in locals(): # Need MRF output first
                           vib1_s, vib2_s = apply_simple_mrf_smoother(df_raw['Vib1_IPS'], df_raw['Vib2_IPS'], **mrf_parameters)
