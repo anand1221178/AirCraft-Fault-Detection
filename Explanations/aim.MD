@@ -1,7 +1,3 @@
-Not quite. There's a critical distinction between what the model uses as input during prediction and what constitutes the ground truth for evaluation.
-
-Let's clarify:
-
 During Prediction/Inference (when the model is running on new data):
 
 INPUTS: The model only uses the sensor readings over time as input:
