@@ -24,10 +24,3 @@
     *   ✅ **Vibration Sensor Health (GT):** Correctly shows the transition from 'OK' -> 'Degraded' -> 'Failed' during the period the Vibration readings are anomalous.
     *   ✅ **EGT, N2, Oil Pressure:** Remain stable, indicating the engine itself is fine.
     *   ✅ **EGT Sensor Health (GT):** Remains 'OK'.
-
-**In summary:** The plots demonstrate that your simulation correctly captures:
-*   Normal baseline behavior.
-*   The distinct primary and secondary sensor signatures for both Oil Leak and Bearing Wear faults.
-*   Sensor failure modes where the sensor reading diverges significantly while the underlying system state (and other sensors) remain normal.
-*   Accurate ground truth labeling for both engine fault state (implicit in the scenario plots) and sensor health states.
-*   Appropriate levels of noise and the presence of dropouts (visible as small gaps/missing points in the traces).
