@@ -1,279 +1,85 @@
-# dbn_model.py
+# dbn_model.py  – final, minimal learner
+from pgmpy.models import DynamicBayesianNetwork as DBN
+import pandas as pd
+from config import HEALTH_NODE, OBSERVATION_NODES, STATE_ORDER
 
-from pgmpy.models import DynamicBayesianNetwork
-from pgmpy.factors.discrete import TabularCPD
-import networkx as nx
-import matplotlib.pyplot as plt
-import numpy as np
-import os
+STATE_INDEX = {s: i for i, s in enumerate(STATE_ORDER)}
 
+def create_cmaps_dbn():
+    model = DBN()
+    for obs in OBSERVATION_NODES:
+        model.add_edge((HEALTH_NODE, 0), (obs, 0))
+        model.add_edge((HEALTH_NODE, 1), (obs, 1))
+    model.add_edge((HEALTH_NODE, 0), (HEALTH_NODE, 1))
+    return model
 
-# In dbn_model.py
+def _two_slice_df(df: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for _, df_u in df.groupby("unit"):
+        for i in range(len(df_u) - 1):
+            rec = {}
+            for v in [HEALTH_NODE] + OBSERVATION_NODES:
+                rec[(v, 0)] = (
+                    STATE_INDEX[df_u.iloc[i][v]]
+                    if v == HEALTH_NODE else int(df_u.iloc[i][v])
+                )
+                rec[(v, 1)] = (
+                    STATE_INDEX[df_u.iloc[i + 1][v]]
+                    if v == HEALTH_NODE else int(df_u.iloc[i + 1][v])
+                )
+            rows.append(rec)
 
-def define_dbn_structure():
-    """
-    Defines the DBN structure including sensor health influencing observations.
-    """
-    dbn_structure = [
-        # --- Intra-slice edges (time 0) ---
-        (('Engine_Core_Health', 0), ('EGT_C_Discrete', 0)),
-        (('Engine_Core_Health', 0), ('N2_PctRPM_Discrete', 0)),
-        (('Engine_Core_Health', 0), ('Vib1_IPS_Discrete', 0)),
-        (('Engine_Core_Health', 0), ('Vib2_IPS_Discrete', 0)),
-        (('Lubrication_System_Health', 0), ('OilPressure_PSI_Discrete', 0)),
-        # Sensor health influences sensors
-        (('EGT_Sensor_Health', 0), ('EGT_C_Discrete', 0)),
-        (('Vibration_Sensor_Health', 0), ('Vib1_IPS_Discrete', 0)),
-        (('Vibration_Sensor_Health', 0), ('Vib2_IPS_Discrete', 0)),
+    big = pd.DataFrame.from_records(rows)
 
-        # --- Inter-slice edges (time 0 to time 1) ---
-        (('Engine_Core_Health', 0), ('Engine_Core_Health', 1)),
-        (('Lubrication_System_Health', 0), ('Lubrication_System_Health', 1)),
-        (('EGT_Sensor_Health', 0), ('EGT_Sensor_Health', 1)), # Sensor health persists
-        (('Vibration_Sensor_Health', 0), ('Vibration_Sensor_Health', 1)), # Sensor health persists
+    # ── NEW: guarantee full category list for every column ───────────
+    for col in big.columns:
+        if col[0] == HEALTH_NODE:               # health: 3 states
+            big[col] = pd.Categorical(big[col], categories=[0,1,2])
+        else:                                   # sensor: use 0…max bin
+            n_bins = int(df[col[0]].max()) + 1
+            big[col] = pd.Categorical(big[col], categories=list(range(n_bins)))
+    # ----------------------------------------------------------------
 
-        # Sensor readings at t=1 depend on states at t=1
-        (('Engine_Core_Health', 1), ('EGT_C_Discrete', 1)),
-        (('Engine_Core_Health', 1), ('N2_PctRPM_Discrete', 1)),
-        (('Engine_Core_Health', 1), ('Vib1_IPS_Discrete', 1)),
-        (('Engine_Core_Health', 1), ('Vib2_IPS_Discrete', 1)),
-        (('Lubrication_System_Health', 1), ('OilPressure_PSI_Discrete', 1)),
-         # Sensor health influences sensors @ t=1
-        (('EGT_Sensor_Health', 1), ('EGT_C_Discrete', 1)),
-        (('Vibration_Sensor_Health', 1), ('Vib1_IPS_Discrete', 1)),
-        (('Vibration_Sensor_Health', 1), ('Vib2_IPS_Discrete', 1)),
-    ]
-    dbn = DynamicBayesianNetwork(dbn_structure)
-    print("--- Nodes created by DBN init ---")
-    print(sorted(dbn.nodes()))
-    print("-------------------------------")
-    return dbn
-
-def define_initial_cpts():
-    """
-    Defines updated CPTs for the DBN (v2.1) — sharper fault signal response,
-    realistic transitions, and grounded in domain logic.
-    """
-    cpt_list = []
-
-    # --- Initial Priors ---
-    cpt_list.append(TabularCPD(('Engine_Core_Health', 0), 3, [[0.97], [0.02], [0.01]]))
-    cpt_list.append(TabularCPD(('Lubrication_System_Health', 0), 2, [[0.98], [0.02]]))
-    cpt_list.append(TabularCPD(('EGT_Sensor_Health', 0), 3, [[0.95], [0.03], [0.02]]))
-    cpt_list.append(TabularCPD(('Vibration_Sensor_Health', 0), 3, [[0.95], [0.03], [0.02]]))
-
-    # --- Observation CPTs ---
-
-    # Vibration sensor obs: Vib1 and Vib2
-    vib_obs_values = np.array([
-        # 9 rows (parent combos), 3 values per row
-        [0.70, 0.25, 0.05],
-        [0.10, 0.50, 0.40],
-        [0.05, 0.20, 0.75],
-        [0.34, 0.33, 0.33],
-        [0.25, 0.40, 0.35],
-        [0.20, 0.40, 0.40],
-        [0.33, 0.33, 0.33],
-        [0.33, 0.33, 0.33],
-        [0.33, 0.33, 0.33]
-    ]).T
-
-    cpt_list.append(TabularCPD(('Vib1_IPS_Discrete', 0), 3, vib_obs_values,
-        evidence=[('Engine_Core_Health', 0), ('Vibration_Sensor_Health', 0)], evidence_card=[3, 3]))
-    cpt_list.append(TabularCPD(('Vib2_IPS_Discrete', 0), 3, vib_obs_values,
-        evidence=[('Engine_Core_Health', 0), ('Vibration_Sensor_Health', 0)], evidence_card=[3, 3]))
-
-    # EGT sensor obs
-    egt_obs_values = np.array([
-        [0.10, 0.85, 0.05],
-        [0.10, 0.65, 0.25],
-        [0.10, 0.50, 0.40],
-        [0.30, 0.45, 0.25],
-        [0.20, 0.55, 0.25],
-        [0.15, 0.40, 0.45],
-        [0.33, 0.33, 0.33],
-        [0.33, 0.33, 0.33],
-        [0.33, 0.33, 0.33]
-    ]).T
-
-    cpt_list.append(TabularCPD(('EGT_C_Discrete', 0), 3, egt_obs_values,
-        evidence=[('Engine_Core_Health', 0), ('EGT_Sensor_Health', 0)], evidence_card=[3, 3]))
-
-    # Oil pressure: strong indicator
-    oilp_obs_values = [
-        [0.01, 0.98],
-        [0.98, 0.01],
-        [0.01, 0.01]
-    ]
-    cpt_list.append(TabularCPD(('OilPressure_PSI_Discrete', 0), 3, oilp_obs_values,
-        evidence=[('Lubrication_System_Health', 0)], evidence_card=[2]))
-
-    # N2 RPM: slight shift
-    n2_obs_values = [
-        [0.10, 0.15, 0.25],
-        [0.85, 0.75, 0.65],
-        [0.05, 0.10, 0.10]
-    ]
-    cpt_list.append(TabularCPD(('N2_PctRPM_Discrete', 0), 3, n2_obs_values,
-        evidence=[('Engine_Core_Health', 0)], evidence_card=[3]))
-
-    # --- Transitions ---
-    cpt_list.append(TabularCPD(('Engine_Core_Health', 1), 3, [
-        [0.92, 0.10, 0.02],
-        [0.06, 0.80, 0.18],
-        [0.02, 0.10, 0.80]
-    ], evidence=[('Engine_Core_Health', 0)], evidence_card=[3]))
-
-    cpt_list.append(TabularCPD(('Lubrication_System_Health', 1), 2, [
-        [0.98, 0.05],
-        [0.02, 0.95]
-    ], evidence=[('Lubrication_System_Health', 0)], evidence_card=[2]))
-
-    # Sensor Health transitions
-    sensor_sh_trans = [
-        [0.91, 0.15, 0.03],  # From OK
-        [0.07, 0.80, 0.10],  # From Degraded
-        [0.02, 0.05, 0.87]   # From Failed
-    ]
-    cpt_list.append(TabularCPD(('EGT_Sensor_Health', 1), 3, sensor_sh_trans,
-        evidence=[('EGT_Sensor_Health', 0)], evidence_card=[3]))
-    cpt_list.append(TabularCPD(('Vibration_Sensor_Health', 1), 3, sensor_sh_trans,
-        evidence=[('Vibration_Sensor_Health', 0)], evidence_card=[3]))
-
-    # --- Observations at t=1: same as t=0 ---
-    cpt_list.append(TabularCPD(('Vib1_IPS_Discrete', 1), 3, vib_obs_values,
-        evidence=[('Engine_Core_Health', 1), ('Vibration_Sensor_Health', 1)], evidence_card=[3, 3]))
-    cpt_list.append(TabularCPD(('Vib2_IPS_Discrete', 1), 3, vib_obs_values,
-        evidence=[('Engine_Core_Health', 1), ('Vibration_Sensor_Health', 1)], evidence_card=[3, 3]))
-    cpt_list.append(TabularCPD(('EGT_C_Discrete', 1), 3, egt_obs_values,
-        evidence=[('Engine_Core_Health', 1), ('EGT_Sensor_Health', 1)], evidence_card=[3, 3]))
-    cpt_list.append(TabularCPD(('OilPressure_PSI_Discrete', 1), 3, oilp_obs_values,
-        evidence=[('Lubrication_System_Health', 1)], evidence_card=[2]))
-    cpt_list.append(TabularCPD(('N2_PctRPM_Discrete', 1), 3, n2_obs_values,
-        evidence=[('Engine_Core_Health', 1)], evidence_card=[3]))
-
-    print(f"Defined {len(cpt_list)} CPTs for the finalized DBN.")
-    return cpt_list
+    return big
 
 
-def visualize_dbn(dbn):
-    """
-    Visualizes the DBN template structure (connections from t=0 to t=1)
-    using Graphviz for a clearer layout if available.
+def learn_cpts_from_data(model, train_df):
+    data = _two_slice_df(train_df)
 
-    """
-    print("Attempting DBN visualization...")
-    try:
-        G_layout = nx.DiGraph(dbn.edges())
-        pos = nx.drawing.nx_agraph.graphviz_layout(G_layout, prog='dot')
-        print("Using Graphviz 'dot' layout.")
-        graphviz_available = True
-    except ImportError:
-        print("PyGraphviz not found. Falling back to basic layout.")
-        print("Install Graphviz and pygraphviz for better visualization:")
-        print("  Ubuntu: sudo apt install graphviz; pip install pygraphviz")
-        print("  macOS: brew install graphviz; pip install pygraphviz")
-        print("  Conda: conda install pygraphviz python-graphviz")
-        pos = nx.multipartite_layout(dbn, subset_key=1) # Basic fallback
-        graphviz_available = False
-    except Exception as e:
-        print(f"Graphviz layout failed: {e}. Falling back to basic layout.")
-        pos = nx.multipartite_layout(dbn, subset_key=1) # Basic fallback
-        graphviz_available = False
+    # ❶  Maximum-likelihood training (pgmpy 0.1.x accepts no kwargs)
+    model.fit(data)                 
 
-    plt.figure(figsize=(18, 14)) # Adjusted size for better spacing
+    # ❷  Pad any CPD that’s missing parent-state columns
+    for cpd in model.get_cpds():
+        vals = cpd.values
+        if vals.ndim == 1:          # reshape root CPDs to 2-D
+            vals = vals.reshape(-1, 1)
 
-    nodes_t0 = [n for n in dbn.nodes() if n[1] == 0]
-    nodes_t1 = [n for n in dbn.nodes() if n[1] == 1]
+        parents = cpd.get_evidence()
+        full_cols = 1
+        for p in parents:
+            full_cols *= len(model.get_cpds(node=p).state_names[p])
 
-    # Define node types for coloring
-    hidden_nodes = [n for n in dbn.nodes() if 'Health' in n[0]]
-    observed_nodes = [n for n in dbn.nodes() if n not in hidden_nodes]
+        if vals.shape[1] < full_cols:        # missing combinations ➜ pad
+            pad = [[1e-3] * (full_cols - vals.shape[1])
+                   for _ in range(vals.shape[0])]
+            vals = np.hstack([vals, pad])
+            vals = vals / vals.sum(axis=0, keepdims=True)
 
-    # Draw nodes with different colors
-    nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in hidden_nodes if n[1]==0], node_color='lightcoral', node_size=4500, label='Hidden t=0')
-    nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in observed_nodes if n[1]==0], node_color='lightblue', node_size=4500, label='Observed t=0')
-    nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in hidden_nodes if n[1]==1], node_color='salmon', node_size=4500, label='Hidden t=1')
-    nx.draw_networkx_nodes(dbn, pos, nodelist=[n for n in observed_nodes if n[1]==1], node_color='lightgreen', node_size=4500, label='Observed t=1')
+            # rebuild CPD with the padded matrix
+            from pgmpy.factors.discrete import TabularCPD
+            new_cpd = TabularCPD(
+                variable       = cpd.variable,
+                variable_card  = cpd.variable_card,
+                values         = vals,
+                evidence       = parents or None,
+                evidence_card  = [len(model.get_cpds(node=p).state_names[p])
+                                  for p in parents] if parents else None,
+                state_names    = cpd.state_names,
+            )
+            model.remove_cpds(cpd)
+            model.add_cpds(new_cpd)
 
-    # Draw edges with increased thickness and different styles
-    edges = dbn.edges()
-    intra_slice_edges = [e for e in edges if e[0][1] == e[1][1]] # Edges within any slice
-    inter_slice_edges = [e for e in edges if e[0][1] == 0 and e[1][1] == 1] # Edges t=0 -> t=1
+    model.check_model()
+    return model
 
-    edge_width = 2.0 # Thicker lines
-    arrow_size = 25 # Larger arrows
-
-   
-    nx.draw_networkx_edges(dbn, pos, edgelist=intra_slice_edges, edge_color='gray', style='dashed',
-                           width=edge_width, arrows=True, arrowsize=arrow_size)
-    nx.draw_networkx_edges(dbn, pos, edgelist=inter_slice_edges, edge_color='red', style='solid',
-                           width=edge_width, arrows=True, arrowsize=arrow_size)
-    
-
-    # Draw labels (
-    labels = {node: f"{node[0].replace('_Discrete','').replace('_IPS','').replace('_PctRPM','').replace('_PSI','').replace('_C','')}\n(t={node[1]})" for node in dbn.nodes()}
-    nx.draw_networkx_labels(dbn, pos, labels=labels, font_size=9, font_weight='bold')
-
-    plt.title("Dynamic Bayesian Network Structure (Template: t=0 to t=1)", fontsize=18)
-    
-    if not graphviz_available:
-        plt.text(0.5, -0.05, 'Dashed: Intra-slice | Solid Red: Inter-slice (t=0 -> t=1)',
-                 transform=plt.gca().transAxes, ha='center', fontsize=10)
-    plt.axis('off')
-    plt.tight_layout()
-
-    # Ensure 'Data' directory exists
-    data_dir = 'Data'
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    save_path = os.path.join(data_dir, 'dbn_structure_improved.png')
-    plt.savefig(save_path, dpi=150)
-    # plt.show() # Optionally display plot immediately
-    plt.close() # Close the figure
-    print(f"Improved DBN Structure Diagram Saved to {save_path}")
-
-# --- (Keep check_dbn as it was) ---
-def check_dbn(dbn):
-    """Checks the validity of the DBN model structure and CPTs."""
-    try:
-        dbn.check_model()
-        print("DBN Model Check Passed: Structure and CPTs are valid.")
-        return True
-    except Exception as e:
-        print(f"DBN Model Check Failed with Error: {e}")
-        return False
-
-
-if __name__ == "__main__":
-    print("--- Defining DBN Structure ---")
-    dbn = define_dbn_structure()
-    print("DBN Structure Defined.")
-
-    print("\n--- Defining Initial CPTs ---")
-    cpt_list = define_initial_cpts()
-    print(f"Defined {len(cpt_list)} CPTs.")
-
-    print("\n--- Adding CPTs to DBN ---")
-    all_added = True
-    for i, cpt in enumerate(cpt_list):
-        # print(f"Adding CPT {i+1}/{len(cpt_list)} for variable {cpt.variable}") # Debug print
-        try:
-            dbn.add_cpds(cpt)
-        except Exception as e:
-            print(f"\nError adding CPT for variable {cpt.variable}: {e}")
-            print("CPT details:")
-            print(cpt)
-            all_added = False
-            break
-
-    if all_added:
-        print("All CPTs added successfully.")
-
-        print("\n--- Visualizing DBN Structure ---")
-        visualize_dbn(dbn) # Call the improved visualization
-
-        print("\n--- Checking DBN Model ---")
-        check_dbn(dbn)
-    else:
-        print("\n--- Skipping Visualization and Model Check due to CPT errors ---")

@@ -1,294 +1,229 @@
-# simulate_data.py
+# File: Data_Gen/sim_data.py
 
 import pandas as pd
 import numpy as np
-import datetime
-import matplotlib.pyplot as plt
-import matplotlib.legend
-import warnings  # To suppress UserWarnings from matplotlib about NaNs
-warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
+import os 
 
-# Import configuration parameters
-from config import (
-    SIMULATION_DURATION_MINUTES,
-    DATA_FREQUENCY_HZ,
-    FAULT_ONSET_FRACTION,
-    FAULT_PROGRESSION_FRACTION,
-    SENSOR_FAILURE_ONSET_FRACTION,
-    SENSOR_FAILURE_PROGRESSION_FRACTION,
-    DEFAULT_NOISE_STD_FACTOR,
-    DROPOUT_RATE,
-    PARAMS
-)
+# Direct imports, assuming Data_Gen is on sys.path
+from cmaps_data_loader import load_cmaps_data, add_rul_column, add_discrete_health_label
+from discretize_data import discretize_data
+# Ensure config.py is also in Data_Gen or another directory added to sys.path
+# If config.py is in Data_Gen:
+from config import DATASET_ID, BINNING_STRATEGY, N_BINS, MANUAL_BINS, OBSERVATION_NODES, SELECTED_SENSORS
+# If config.py is in src/ (and src/ is not directly on sys.path but ./ is, when running from src/):
+# You might need to adjust how config is found or ensure Data_Gen can see it.
+# Given your sys.path.append in run_experiment.py for submodules, and if config.py is in Data_Gen,
+# 'from config import ...' should work when run_experiment.py imports sim_data.
 
-# --- Helper Function ---
-def smooth_step(x):
-    """Smooth transition from 0 to 1 as x goes from 0 to 1."""
-    x = np.clip(x, 0.0, 1.0)
-    return 3 * x**2 - 2 * x**3
+# Function definitions (prepare_cmaps_data, generate_drifted_engine) as before...
+# ... Make sure the generate_drifted_engine function is the one I provided previously
+#     that includes the base_dir fallback and uses os.path.join etc.
+#     (The one that fixed the FileNotFoundError logic)
 
-# --- Main Simulation Function ---
-def simulate_engine_data(duration_minutes, frequency_hz, scenario='Normal', params=PARAMS, dropout_rate=DROPOUT_RATE):
-    """
-    Generates simulated data for all sensors based on the specified scenario.
-    """
-    total_seconds = duration_minutes * 60
-    num_data_points = total_seconds * frequency_hz
-    time_delta = datetime.timedelta(seconds=1.0 / frequency_hz)
-    start_time = datetime.datetime.now() - datetime.timedelta(seconds=total_seconds)
-    timestamps = [start_time + i * time_delta for i in range(num_data_points)]
-    
-    # Timing indices
-    fault_onset_idx = int(num_data_points * FAULT_ONSET_FRACTION)
-    fault_end_progression_idx = fault_onset_idx + int(num_data_points * FAULT_PROGRESSION_FRACTION)
-    sensor_fail_onset_idx = int(num_data_points * SENSOR_FAILURE_ONSET_FRACTION)
-    sensor_fail_end_progression_idx = sensor_fail_onset_idx + int(num_data_points * SENSOR_FAILURE_PROGRESSION_FRACTION)
-    
-    # Initialize data dictionary and current state values
-    data = {'Timestamp': timestamps}
-    current_values = {
-        'EGT': params['EGT']['cruise_target'],
-        'N2': params['N2']['cruise_target'],
-        'OilPressure': params['OilPressure']['cruise_target'],
-        'Vibration': params['Vibration']['cruise_target']  # Base 'true' vibration
-    }
-    
-    # Initialize columns for reported values
-    for sensor in ['EGT', 'N2', 'OilPressure', 'Vibration']:  # Base names
-        if sensor == 'Vibration':
-            data['Vib1_IPS'] = np.zeros(num_data_points)
-            data['Vib2_IPS'] = np.zeros(num_data_points)
+def prepare_cmaps_data(base_dir="Data/C-MAPSS", drift_scenario=None):
+    # ... (implementation using load_cmaps_data, add_rul_column, etc.)
+    # Step 1: Load data
+    train_df, test_df, test_rul = load_cmaps_data(base_dir, dataset_id=DATASET_ID)
+
+    # Step 2: Add RUL and health labels
+    train_df = add_rul_column(train_df)
+    train_df = add_discrete_health_label(train_df)
+
+    for raw_sensor_name in SELECTED_SENSORS: 
+        if raw_sensor_name in train_df.columns:
+            print(f"Sensor: {raw_sensor_name}, Min: {train_df[raw_sensor_name].min():.2f}, Max: {train_df[raw_sensor_name].max():.2f}, StdDev: {train_df[raw_sensor_name].std():.2f}, NumUnique: {train_df[raw_sensor_name].nunique()}")
         else:
-            col_name = f"{sensor}_{params[sensor]['unit'].replace('%','Pct')}"  # Make col name safe
-            data[col_name] = np.zeros(num_data_points)
-    
-    # Ground Truth Labels
-    data['Engine_Fault_State'] = ['Normal'] * num_data_points
-    data['EGT_Sensor_Health'] = ['OK'] * num_data_points
-    data['Vibration_Sensor_Health'] = ['OK'] * num_data_points  # Represents health of the vibration sensing system/pair
-    
-    # --- Simulation Loop ---
-    for i in range(num_data_points):
-        # 1. Determine Fault/Failure Progression
-        fault_progress = 0.0
-        if scenario in ['OilLeak', 'BearingWear'] and i >= fault_onset_idx:
-            fault_progress = smooth_step((i - fault_onset_idx) / max(1, fault_end_progression_idx - fault_onset_idx))
-            data['Engine_Fault_State'][i] = f"{scenario}_Active"
-        
-        sensor_fail_progress = 0.0
-        sensor_failing = 'None'
-        if scenario == 'EGTSensorFail' and i >= sensor_fail_onset_idx:
-            sensor_fail_progress = smooth_step((i - sensor_fail_onset_idx) / max(1, sensor_fail_end_progression_idx - sensor_fail_onset_idx))
-            sensor_failing = 'EGT'
-        elif scenario == 'VibSensorFail' and i >= sensor_fail_onset_idx:
-            sensor_fail_progress = smooth_step((i - sensor_fail_onset_idx) / max(1, sensor_fail_end_progression_idx - sensor_fail_onset_idx))
-            sensor_failing = 'Vibration'
-        
-        # --- 2. Calculate Target TRUE Values for this step ---
-        targets = {}
-        targets['N2'] = params['N2']['cruise_target']
-        if scenario == 'BearingWear':
-            targets['N2'] -= fault_progress * params['N2']['bearing_wear_decrease']
-        targets['EGT'] = params['EGT']['cruise_target']
-        if scenario == 'BearingWear':
-            targets['EGT'] += fault_progress * params['EGT']['bearing_wear_increase']
-        # EGT also weakly depends on N2, but N2 change is minimal here
-        targets['OilPressure'] = params['OilPressure']['cruise_target']
-        if scenario == 'OilLeak':
-            leak_target = params['OilPressure']['oil_leak_target']
-            cruise_target = params['OilPressure']['cruise_target']
-            targets['OilPressure'] = cruise_target + fault_progress * (leak_target - cruise_target)
-        targets['Vibration'] = params['Vibration']['cruise_target']
-        if scenario == 'BearingWear':
-            targets['Vibration'] += fault_progress * params['Vibration']['bearing_wear_increase']
-        # Vibration weakly depends on N2, minimal effect here
-        
-        # --- 3. Update Current TRUE Values (Simulate Dynamics/Inertia) ---
-        for sensor in ['EGT', 'OilPressure', 'Vibration']:  # N2 changes instantly in this simple model
-            p = params[sensor]
-            ramp = p.get('ramp_factor', 0.5)  # Default to faster change if no ramp defined
-            current_values[sensor] += (targets[sensor] - current_values[sensor]) * ramp
-        
-        # N2: Update directly based on target (no ramp needed for this model)
-        current_values['N2'] = targets['N2']  # Or add a ramp if desired
-        
-        # --- 4. Simulate Sensor Reading Process (Noise, Failure, Correlation for Vib) ---
-        reported_values = {}
-        for sensor, p in params.items():
-            true_val = current_values[sensor]
-            base_noise_std = p.get('noise_std', true_val * p.get('noise_std_factor', DEFAULT_NOISE_STD_FACTOR))
-            sensor_health = 'OK'
-            reported_val = true_val  # Start with the true value
-            
-            # Apply sensor failure effects (drift, increased noise)
-            if sensor_failing == sensor and p['has_hmm']:
-                drift = sensor_fail_progress * p['fail_drift']
-                noise_factor = 1.0 + sensor_fail_progress * (p['fail_noise_factor'] - 1.0)
-                base_noise_std *= noise_factor
-                reported_val += drift  # Add drift *before* noise
-                # Update sensor health ground truth
-                if sensor_fail_progress < 0.1:
-                    sensor_health = 'OK'
-                elif sensor_fail_progress < 0.9:
-                    sensor_health = 'Degraded'
-                else:
-                    sensor_health = 'Failed'
-                if sensor == 'EGT':
-                    data['EGT_Sensor_Health'][i] = sensor_health
-                if sensor == 'Vibration':
-                    data['Vibration_Sensor_Health'][i] = sensor_health
-            
-            # Add baseline noise
-            noise = np.random.normal(loc=0.0, scale=base_noise_std)
-            reported_val += noise
-            
-            # Handle Vibration specifically (Vib1, Vib2, MRF noise)
-            if sensor == 'Vibration':
-                # Add small independent noise component for MRF
-                noise_vib1 = np.random.normal(loc=0.0, scale=p['mrf_correlation_noise_std'])
-                noise_vib2 = np.random.normal(loc=0.0, scale=p['mrf_correlation_noise_std'])
-                # Clamp and store Vib1, Vib2
-                vib1_final = np.clip(reported_val + noise_vib1, p['min_val'], p['max_val'])
-                vib2_final = np.clip(reported_val + noise_vib2, p['min_val'], p['max_val'])
-                # Apply dropout individually
-                if np.random.rand() < dropout_rate:
-                    vib1_final = np.nan
-                if np.random.rand() < dropout_rate:
-                    vib2_final = np.nan
-                data['Vib1_IPS'][i] = vib1_final
-                data['Vib2_IPS'][i] = vib2_final
-            else:
-                # Clamp other sensors
-                reported_val_final = np.clip(reported_val, p['min_val'], p['max_val'])
-                # Apply dropout
-                if np.random.rand() < dropout_rate:
-                    reported_val_final = np.nan
-                # Store in data dictionary
-                col_name = f"{sensor}_{p['unit'].replace('%','Pct')}"
-                data[col_name][i] = reported_val_final
-    
-    # --- End Loop ---
-    df = pd.DataFrame(data)
-    
-    df['Scenario'] = scenario
-    # Round numeric columns for realism
-    for col in df.select_dtypes(include=np.number).columns:
-        df[col] = df[col].round(2)
-    
-    return df
+            print(f"Warning: Raw sensor {raw_sensor_name} not in train_df.")
 
-# --- Example Usage & Validation ---
-if __name__ == "__main__":
-    scenarios_to_run = ['Normal', 'OilLeak', 'BearingWear', 'EGTSensorFail', 'VibSensorFail']
-    all_scenario_data = []  # Store dataframes for final concatenation
-    print("Generating simulated engine data...")
-    for scenario in scenarios_to_run:
-        print(f"--- Scenario: {scenario} ---")
-        df_scenario = simulate_engine_data(
-            duration_minutes=SIMULATION_DURATION_MINUTES,
-            frequency_hz=DATA_FREQUENCY_HZ,
-            scenario=scenario
-        )
-        df_scenario['Scenario'] = scenario  # Label for combined file/analysis
-        all_scenario_data.append(df_scenario)
-        
-        # --- Plotting for Validation ---
-        print(f"    Plotting {scenario}...")
-        num_sensors = len(PARAMS) + 1  # +1 because Vib has two outputs
-        fig, axes = plt.subplots(num_sensors, 1, figsize=(15, 4 * num_sensors), sharex=True)
-        fig.suptitle(f"Simulated Sensor Data - Scenario: {scenario} (Dropout={DROPOUT_RATE*100}%)", fontsize=16)
-        plot_idx = 0
-        # Plot each sensor
-        for sensor, p in PARAMS.items():
-            ax = axes[plot_idx]
-            if sensor == 'Vibration':
-                ax.plot(df_scenario['Timestamp'], df_scenario['Vib1_IPS'], label='Vib1_IPS', alpha=0.7, marker='.', linestyle='-', markersize=1)
-                ax.plot(df_scenario['Timestamp'], df_scenario['Vib2_IPS'], label='Vib2_IPS', alpha=0.7, marker='.', linestyle='-', markersize=1)
-                ax.axhline(p['low_thresh'], color='orange', linestyle=':', label=f'Low Threshold ({p["low_thresh"]})')
-                ax.axhline(p['high_thresh'], color='red', linestyle=':', label=f'High Threshold ({p["high_thresh"]})')
-                ax.set_ylabel(f"Vibration ({p['unit']})")
-                ax.legend(loc='upper left')
-                plot_idx += 1  # Vib uses one plot slot, but we need another one below
-                # Need an extra plot slot since Vib has Vib1/Vib2
-                ax = axes[plot_idx]
-                # Plot Sensor Health if applicable
-                if p['has_hmm']:
-                    health_map = {'OK': 1, 'Degraded': 0.5, 'Failed': 0}
-                    health_numeric = df_scenario['Vibration_Sensor_Health'].map(health_map)
-                    ax.plot(df_scenario['Timestamp'], health_numeric, label='Vibration Sensor Health (GT)', color='purple', drawstyle='steps-post')
-                    ax.set_yticks([0, 0.5, 1])
-                    ax.set_yticklabels(['Failed', 'Degraded', 'OK'])
-                    ax.set_ylabel("Sensor Health")
-                    ax.legend(loc='upper left')
-            else:
-                col_name = f"{sensor}_{p['unit'].replace('%','Pct')}"
-                ax.plot(df_scenario['Timestamp'], df_scenario[col_name], label=col_name, marker='.', linestyle='-', markersize=1)
-                ax.axhline(p['low_thresh'], color='orange', linestyle=':', label=f'Low ({p["low_thresh"]})')
-                ax.axhline(p['high_thresh'], color='red', linestyle=':', label=f'High ({p["high_thresh"]})')
-                ax.set_ylabel(f"{sensor} ({p['unit']})")
-                # Add sensor health subplot if applicable
-                if p['has_hmm']:
-                    ax_health = ax.twinx()  # Share x-axis
-                    health_map = {'OK': 1, 'Degraded': 0.5, 'Failed': 0}
-                    health_numeric = df_scenario[f'{sensor}_Sensor_Health'].map(health_map)
-                    ax_health.plot(df_scenario['Timestamp'], health_numeric, label=f'{sensor} Sensor Health (GT)', color='purple', drawstyle='steps-post', alpha=0.6)
-                    ax_health.set_yticks([0, 0.5, 1])
-                    ax_health.set_yticklabels(['Failed', 'Degraded', 'OK'])
-                    ax_health.set_ylabel("Sensor Health", color='purple')
-                    ax_health.tick_params(axis='y', labelcolor='purple')
-                    # Combine legends
-                    lines, labels = ax.get_legend_handles_labels()
-                    lines2, labels2 = ax_health.get_legend_handles_labels()
-                    ax.legend(lines + lines2, labels + labels2, loc='upper left')
-                else:
-                    ax.legend(loc='upper left')
-            ax.grid(True, axis='y', linestyle='--', alpha=0.6)
-            plot_idx += 1
-        
-        # Add vertical lines for events
-        fault_onset_time = df_scenario['Timestamp'].iloc[int(len(df_scenario) * FAULT_ONSET_FRACTION)]
-        sensor_fail_onset_time = df_scenario['Timestamp'].iloc[int(len(df_scenario) * SENSOR_FAILURE_ONSET_FRACTION)]
-        # Make legend visible just once on the first axes
-        if ax == axes[0]:
-            handles, labels = ax.get_legend_handles_labels()
-            # Add handles/labels from the twin axis if it exists
-            if ax.get_legend() and ax.get_legend().axes != ax:  # Check if twinx exists and has legend items
-                twin_handles, twin_labels = ax.get_legend().axes.get_legend_handles_labels()
-                handles.extend(twin_handles)
-                labels.extend(twin_labels)
-            # Remove duplicate labels/handles (like event lines potentially added multiple times)
-            by_label = dict(zip(labels, handles))
-            # Set the final, unique legend on the first axis
-            ax.legend(by_label.values(), by_label.keys(), loc='upper left')
-        elif ax.get_legend():  # Remove legends from other axes if they exist
-            ax.get_legend().remove()
-        axes[-1].set_xlabel("Timestamp")
-        plt.xticks(rotation=30, ha='right')
-        plt.tight_layout(rect=[0, 0.03, 1, 0.97])  # Adjust layout to prevent title overlap
-        # Save the plot
-        plt.savefig(f'simulation_plot_{scenario}.png', dpi=150)
-        plt.close(fig)  # Close the figure to avoid displaying it now
+    # Step 3: Discretize sensors
+    train_df = discretize_data(train_df, config=MANUAL_BINS, strategy=BINNING_STRATEGY, n_bins=N_BINS)
+
+    # Step 4: Apply synthetic drift if requested
+    if drift_scenario == "EGT_Drift":
+        print("[INFO] Applying synthetic EGT drift to training data...")
+        drift_sensor = "sensor_11_disc"
+        if drift_sensor in train_df.columns: 
+            for unit in train_df["unit"].unique():
+                unit_indices = train_df[train_df["unit"] == unit].index
+                if not unit_indices.empty:
+                    n_points = len(unit_indices)
+                    drift = (np.arange(n_points) / (n_points -1 if n_points > 1 else 1) )
+                    
+                    original_vals = train_df.loc[unit_indices, drift_sensor].values
+                    drifted_vals = original_vals + (drift * 1).astype(int)
+                    max_bin_value = N_BINS - 1 
+                    train_df.loc[unit_indices, drift_sensor] = np.clip(drifted_vals, 0, max_bin_value)
+        else:
+            print(f"Warning: Drift sensor {drift_sensor} not found in train_df. Skipping EGT_Drift for prepare_cmaps_data.")
+    return train_df, test_df, test_rul
+
+def generate_drifted_engine(scenario="EGT_Drift", n_steps=50, base_unit_id=1, 
+                            dataset_id_for_base="FD001", base_dir=None): # base_dir will be passed from run_experiment
     
-    print("...Plotting complete. Plots saved as PNG files.")
-    # Combine all data
-    combined_df = pd.concat(all_scenario_data, ignore_index=True)
-    # Save combined raw data
-    output_filename_raw = 'sim_data_raw.csv'
-    combined_df.to_csv(output_filename_raw, index=False)
-    print(f"\nCombined raw data saved to {output_filename_raw}")
-    # --- Display Stats ---
-    print("\n--- Data Summary ---")
-    print(f"Total data points: {len(combined_df)}")
-    print("\nScenario Distribution:")
-    print(combined_df['Scenario'].value_counts())
-    print("\nEngine Fault State Distribution:")
-    print(combined_df['Engine_Fault_State'].value_counts())
-    print("\nEGT Sensor Health Distribution:")
-    print(combined_df['EGT_Sensor_Health'].value_counts())
-    print("\nVibration Sensor Health Distribution:")
-    print(combined_df['Vibration_Sensor_Health'].value_counts())
-    print("\nNaN Counts per Sensor Column:")
-    print(combined_df.isnull().sum())
-    print("\nSample Data:")
-    print(combined_df.sample(5))
-    print("\n--- Simulation script finished ---")
+    print(f"[INFO] Generating SYNTHETIC drifted engine data for scenario: {scenario}, n_steps: {n_steps}")
+
+    # Create a synthetic DataFrame
+    cycles = np.arange(1, n_steps + 1)
+    df_synthetic = pd.DataFrame({'unit': base_unit_id, 'cycle': cycles})
+
+    # Set all OBSERVATION_NODES (discretized sensor names from config) to a "healthy" bin (e.g., 0 or 1)
+    # Ensure OBSERVATION_NODES is imported from config
+    healthy_bin_value = 0 # Or 1, depending on what's typical for healthy for most sensors
+    for sensor_disc_name in OBSERVATION_NODES:
+        df_synthetic[sensor_disc_name] = healthy_bin_value
+    
+    # Apply the specified drift scenario
+    if scenario == "EGT_Drift":
+        drift_sensor_disc = "sensor_11_disc" # Must be in OBSERVATION_NODES
+        if drift_sensor_disc in df_synthetic.columns:
+            max_bin_value = N_BINS - 1
+            if n_steps > 1:
+                drift_values_pattern = np.linspace(0, max_bin_value, n_steps).astype(int)
+            else:
+                drift_values_pattern = np.array([0]).astype(int) 
+            df_synthetic[drift_sensor_disc] = np.clip(drift_values_pattern, 0, max_bin_value)
+            print(f"  Applied SYNTHETIC AGGRESSIVE drift to '{drift_sensor_disc}' from bin 0 towards {max_bin_value}.")
+            # print(f"  Drifted {drift_sensor_disc} (first 10): {df_synthetic[drift_sensor_disc].head(10).values}")
+        else:
+            print(f"  Warning: Drift sensor '{drift_sensor_disc}' not in OBSERVATION_NODES. Cannot apply EGT_Drift.")
+            
+    elif scenario == "Vibration_Spike":
+        # ... (implement similar logic for a synthetic spike if needed) ...
+        pass
+    else:
+        print(f"  Warning: Unknown drift scenario '{scenario}'. No drift applied to synthetic data.")
+
+    # The RUL and HealthState will be added in run_experiment.py to force "Healthy"
+    return df_synthetic
+
+
+
+# def generate_drifted_engine(scenario="EGT_Drift", n_steps=None, base_unit_id=1, 
+#                             dataset_id_for_base="FD001", base_dir=None):
+#     print(f"[INFO] Generating drifted engine data for scenario: {scenario}, base unit: {base_unit_id}, received base_dir: {base_dir}")
+
+#     effective_base_dir = base_dir
+#     if effective_base_dir is None:
+#         script_dir_sim_data = os.path.dirname(os.path.abspath(__file__)) 
+#         # Adjust based on whether Data_Gen is in src or directly in project root
+#         # Assuming Data_Gen is in src, and src is in project_root which contains Data/
+#         # path_to_src = os.path.dirname(script_dir_sim_data)
+#         # path_to_project_root = os.path.dirname(path_to_src)
+#         # effective_base_dir = os.path.join(path_to_project_root, "Data", "C-MAPSS")
+#         # For your structure: PROJECT_ROOT/Data_Gen/ and PROJECT_ROOT/Data/
+#         path_to_project_root = os.path.dirname(script_dir_sim_data) # if Data_Gen is sibling to Data in PROJECT_ROOT
+#         effective_base_dir = os.path.join(path_to_project_root, "Data", "C-MAPSS")
+
+#         print(f"[sim_data.py generate_drifted_engine] Warning: base_dir was None, defaulting to: {effective_base_dir}")
+    
+#     # print(f"[sim_data.py generate_drifted_engine] Effective base_dir for load_cmaps_data: {effective_base_dir}")
+#     # target_train_file = f"train_{dataset_id_for_base}.txt"
+#     # full_path_to_check = os.path.join(effective_base_dir, target_train_file)
+#     # print(f"[sim_data.py generate_drifted_engine] Full path being checked: {full_path_to_check}")
+#     # print(f"[sim_data.py generate_drifted_engine] Does path exist? {os.path.exists(full_path_to_check)}")
+#     # print(f"[sim_data.py generate_drifted_engine] Is it a file? {os.path.isfile(full_path_to_check)}")
+
+#     if not os.path.exists(os.path.join(effective_base_dir, f"train_{dataset_id_for_base}.txt")):
+#         raise FileNotFoundError(f"CRITICAL in generate_drifted_engine: File not found at calculated path: {os.path.join(effective_base_dir, f'train_{dataset_id_for_base}.txt')}")
+
+#     temp_train_df, _, _ = load_cmaps_data(base_dir=effective_base_dir, dataset_id=dataset_id_for_base)
+    
+#     unit_df = temp_train_df[temp_train_df["unit"] == base_unit_id].copy()
+#     if unit_df.empty:
+#         raise ValueError(f"Base unit ID {base_unit_id} not found in dataset {dataset_id_for_base} loaded from {effective_base_dir}.")
+
+#     unit_df = add_rul_column(unit_df) # RUL will be forced later in run_experiment.py for the demo
+#     unit_df_processed = discretize_data(unit_df, config=MANUAL_BINS, strategy=BINNING_STRATEGY, n_bins=N_BINS)
+#     df_drifted = unit_df_processed.copy()
+
+#     if scenario == "EGT_Drift":
+#         print(f"  Applying EGT_Drift to unit {base_unit_id}...")
+#         drift_sensor_disc = "sensor_11_disc" # Example EGT-related discretized sensor
+        
+#         if drift_sensor_disc not in df_drifted.columns:
+#             print(f"  Warning: Drift sensor '{drift_sensor_disc}' not found in columns: {df_drifted.columns}. Skipping drift.")
+#             return df_drifted
+
+#         n_points = len(df_drifted)
+#         if n_points == 0: 
+#             print("  Warning: Base unit for drift has no data points. Returning empty DataFrame.")
+#             return df_drifted
+            
+#         max_bin_value = N_BINS - 1
+        
+#         # --- MODIFIED AGGRESSIVE DRIFT ---
+#         # Create a drift pattern that goes from bin 0 to max_bin_value linearly over n_points
+#         if n_points > 1:
+#             drift_values_pattern = np.linspace(0, max_bin_value, n_points).astype(int)
+#         else: # Handle single point case
+#             drift_values_pattern = np.array([0]).astype(int) 
+            
+#         df_drifted[drift_sensor_disc] = np.clip(drift_values_pattern, 0, max_bin_value)
+#         # --- END MODIFIED AGGRESSIVE DRIFT ---
+        
+#         print(f"  Applied AGGRESSIVE drift to '{drift_sensor_disc}' from bin 0 towards {max_bin_value}.")
+#         # print(f"  Drifted {drift_sensor_disc} values (first 10): {df_drifted[drift_sensor_disc].head(10).values}")
+#         # print(f"  Drifted {drift_sensor_disc} values (last 10): {df_drifted[drift_sensor_disc].tail(10).values}")
+
+
+#     elif scenario == "Vibration_Spike":
+#         # ... (Your Vibration_Spike logic - ensure it uses N_BINS for max_bin_value) ...
+#         print(f"  Applying Vibration_Spike to unit {base_unit_id}...")
+#         spike_sensor_disc = "sensor_4_disc"
+#         if spike_sensor_disc not in df_drifted.columns: 
+#             print(f"  Warning: Spike sensor '{spike_sensor_disc}' not found. Skipping spike.")
+#             return df_drifted
+        
+#         n_points = len(df_drifted)
+#         if n_points > 10 : 
+#             spike_start_index = n_points // 2
+#             spike_end_index = spike_start_index + 5 
+#             max_bin_value = N_BINS - 1 
+#             valid_indices = df_drifted.index[spike_start_index:min(spike_end_index, n_points)]
+#             if not valid_indices.empty:
+#                 df_drifted.loc[valid_indices, spike_sensor_disc] = max_bin_value
+#         # print(f"  Applied spike to '{spike_sensor_disc}'.")
+        
+#     else:
+#         print(f"  Warning: Unknown drift scenario '{scenario}'. No drift applied.")
+
+#     if n_steps is not None:
+#         if len(df_drifted) > n_steps:
+#             df_drifted = df_drifted.iloc[:n_steps]
+#         # Else: Paddington logic would go here if n_steps > len(df_drifted)
+    
+#     return df_drifted
+
+if __name__ == "__main__":
+    # This block is for testing sim_data.py directly.
+    # Paths need to be relative to Data_Gen/ or absolute.
+    
+    # Path from Data_Gen/sim_data.py to PROJECT_ROOT/Data/C-MAPSS is "../../Data/C-MAPSS"
+    # Assuming PROJECT_ROOT -> src -> Data_Gen
+    current_file_dir = os.path.dirname(os.path.abspath(__file__))
+    # test_base_dir assumes Data_Gen is in src, and Data is sibling to src's parent.
+    # If Data_Gen is directly in PROJECT_ROOT, then it's "../Data/C-MAPSS"
+    # Your tree: PROJECT_ROOT/Data_Gen and PROJECT_ROOT/Data. So it's "../Data/C-MAPSS"
+    test_base_dir = os.path.join(current_file_dir, "..", "Data", "C-MAPSS") # Corrected for your tree
+    print(f"Test base_dir for standalone sim_data.py run: {os.path.abspath(test_base_dir)}")
+
+
+    print("--- Testing prepare_cmaps_data ---")
+    try:
+        # For standalone test, config.py must be findable.
+        # If config.py is in Data_Gen, 'from config import ...' should work.
+        from config import OBSERVATION_NODES as obs_nodes_for_test_prepare
+        train_df, _, _ = prepare_cmaps_data(base_dir=test_base_dir, drift_scenario="EGT_Drift") 
+        print(train_df[['unit', 'cycle', 'sensor_11_disc'] + obs_nodes_for_test_prepare[:2]].head())
+    except Exception as e:
+        print(f"Error in prepare_cmaps_data test: {e}")
+
+
+    print("\n--- Testing generate_drifted_engine ---")
+    try:
+        from config import OBSERVATION_NODES as obs_nodes_for_test_generate
+        drifted_unit_data = generate_drifted_engine(scenario="EGT_Drift", n_steps=50, base_unit_id=1, base_dir=test_base_dir)
+        print(drifted_unit_data[['unit', 'cycle', 'sensor_11_disc'] + obs_nodes_for_test_generate[:2]].head())
+        print(f"Shape of drifted_unit_data: {drifted_unit_data.shape}")
+    except Exception as e:
+        print(f"Error during generate_drifted_engine EGT_Drift test: {e}")
