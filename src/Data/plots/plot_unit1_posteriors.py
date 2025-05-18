@@ -1,7 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Load posterior CSV (ensure correct path)
+# Load posterior CSV 
 df = pd.read_csv("unit1_posteriors.csv")
 
 # Plot settings
@@ -10,7 +10,7 @@ plt.plot(df["cycle"], df["P(Engine_Core_Health=Healthy)"], label="Healthy", colo
 plt.plot(df["cycle"], df["P(Engine_Core_Health=Degrading)"], label="Degrading", color="orange")
 plt.plot(df["cycle"], df["P(Engine_Core_Health=Critical)"], label="Critical", color="red")
 
-# Ground truth background coloring (optional)
+# Ground truth background coloring 
 if "true" in df.columns:
     for state in df["true"].unique():
         mask = df["true"] == state

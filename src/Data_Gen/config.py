@@ -16,7 +16,7 @@ STATE_INDEX = {s:i for i, s in enumerate(STATE_ORDER)}
 
 
 # ===== Top Sensors to Use =====
-# These were found to be useful in prior C-MAPSS studies (can be changed)
+
 SELECTED_SENSORS = [
     "sensor_2",
     "sensor_3",
@@ -30,7 +30,7 @@ SELECTED_SENSORS = [
 ]
 
 # ===== Discretization Settings =====
-# config.py
+
 BINNING_SCHEME = {
     "sensor_2":  (4, "quantile"),
     "sensor_11": (4, "quantile"),
@@ -46,8 +46,7 @@ DEFAULT_N_BINS       = 3
 DEFAULT_BIN_STRATEGY = "quantile"
 
 
-# Optional: Manual bin edges (if you prefer fixed intervals)
-# Format: {'sensor_x': [min, b1, b2, ..., max]}
+
 MANUAL_BINS = {}
 
 # ===== Node Naming for DBN =====

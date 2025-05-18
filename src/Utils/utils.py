@@ -1,3 +1,5 @@
+# -------------NOT USED # -------------
+
 import pandas as pd
 import numpy as np
 
@@ -23,7 +25,7 @@ def map_probabilities_to_predictions(results_df,
     Returns:
         pd.Series: A series with the final discrete prediction for each timestep.
     """
-    # Initialize an empty series to store predictions for each time step
+
     predictions = pd.Series(index=results_df.index, dtype=str)
     
     # Define probability columns expected (handle potential missing columns gracefully)

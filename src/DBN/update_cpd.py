@@ -9,11 +9,6 @@ def dirichlet_posterior(old_cpd: TabularCPD,
                         child_state_idx: int,
                         parent_config_col_idx: int,
                         alpha: float = 0.1):
-    # print(f"-> ENTERING dirichlet_posterior for {old_cpd.variable} with child_idx={child_state_idx}, parent_col_idx={parent_config_col_idx}, alpha={alpha}")
-    # ... (alpha check, boundary checks for indices) ...
-    # if alpha <= 0: alpha = 1e-6
-    # if not (0 <= child_state_idx < old_cpd.values.shape[0]): return old_cpd
-    # if not (0 <= parent_config_col_idx < old_cpd.values.shape[1]): return old_cpd
 
     original_column_probs = old_cpd.values[:, parent_config_col_idx].copy() # For comparison
 
@@ -21,21 +16,6 @@ def dirichlet_posterior(old_cpd: TabularCPD,
     pseudo_counts[child_state_idx, parent_config_col_idx] += 1.0
     new_normalized_values = pseudo_counts / pseudo_counts.sum(axis=0, keepdims=True)
 
-    # # --- DEBUG: Check if values actually changed ---
-    # # Pick the specific column that was updated
-    # updated_column_probs = new_normalized_values[:, parent_config_col_idx]
-    # if not np.allclose(original_column_probs, updated_column_probs):
-    #     print(f"  DEBUG (dirichlet_posterior) for CPD {old_cpd.variable}, child_idx={child_state_idx}, parent_col_idx={parent_config_col_idx}:")
-    #     print(f"    Old probs for this column: {original_column_probs}")
-    #     print(f"    New probs for this column: {updated_column_probs}")
-    #     print(f"    Difference: {updated_column_probs - original_column_probs}")
-    #     # else:
-    #     #     # This might happen if alpha is huge and old_cpd.values are tiny, or if update is to same state
-    #     print(f"  DEBUG (dirichlet_posterior) for CPD {old_cpd.variable}: No significant change in probabilities for column {parent_config_col_idx}.")
-    # # --- END DEBUG ---
-
-
-    # ... (rest of the function to reconstruct and return TabularCPD with new_normalized_values) ...
     evidence_nodes = old_cpd.get_evidence()
     evidence_cards_list = None
     if evidence_nodes:
@@ -63,8 +43,6 @@ def dirichlet_posterior(old_cpd: TabularCPD,
 
 # In DBN/update_cpd.py
 
-# Make sure dirichlet_posterior is defined above this function in the same file
-# and that prepare_evidence_sequence and infer_marginals_dataframe are imported at the top.
 
 def update_cpds_online(dbn, unit_df, health_node_name=None, obs_nodes=None, alpha=0.1):
     evidence_seq_dict_list = prepare_evidence_sequence(unit_df) 
@@ -194,19 +172,7 @@ def update_cpds_online(dbn, unit_df, health_node_name=None, obs_nodes=None, alph
                 print(f"    SKIP (t={t}, CPD={cpd_to_update.variable}): Final indices for dirichlet_posterior out of bounds. ChildIdx: {observed_child_state_index} (max: {cpd_to_update.values.shape[0]-1}), ParentColIdx: {parent_config_column_index} (max: {cpd_to_update.values.shape[1]-1}).")
                 continue
             
-            update_attempts +=1
-            # print(f"DEBUG (update_cpds_online): Attempting to update CPD for {cpd_to_update.variable}") 
-            # print(f"  Child state index to pass: {observed_child_state_index}")
-            # print(f"  Parent config column index to pass: {parent_config_column_index}")
-            # print(f"  Alpha to pass: {alpha}")
-            # if 0 <= parent_config_column_index < cpd_to_update.values.shape[1]:
-            #     if 0 <= observed_child_state_index < cpd_to_update.values.shape[0]:
-            #         print(f"  Old values for target cell ({observed_child_state_index}, {parent_config_column_index}) in CPD {cpd_to_update.variable}: {cpd_to_update.values[observed_child_state_index, parent_config_column_index]}")
-            #     else:
-            #         print(f"  Skipping print of old values: child_state_index {observed_child_state_index} out of bounds for rows {cpd_to_update.values.shape[0]}")
-            # else:
-            #     print(f"  Skipping print of old values: parent_config_column_index {parent_config_column_index} out of bounds for columns {cpd_to_update.values.shape[1]}")
-            
+            update_attempts +=1            
             try:
                 # print(f"  Calling dirichlet_posterior for CPD {cpd_to_update.variable} with child_idx={observed_child_state_index}, parent_col_idx={parent_config_column_index}, alpha={alpha}")
                 updated_cpd = dirichlet_posterior(

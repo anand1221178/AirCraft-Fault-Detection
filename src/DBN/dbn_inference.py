@@ -39,7 +39,7 @@ def infer_health_states_tuples(sequence_df, model):
 
     predicted_states = []
     for t in range(len(evidence_seq)):
-        # REPLACE the line you just changed with the following:
+
         marginals = infer.query(variables=[(HEALTH_NODE, 0)],
                                 evidence=evidence_seq[t])
 
@@ -64,9 +64,9 @@ def infer_marginals_dataframe(sequence_df, model):
     evidence_seq_for_df = []
     for _, row in sequence_df.iterrows():
         evidence = {}
-        for obs_node_name in OBSERVATION_NODES: # obs_node_name are base names like 'sensor_2_disc'
+        for obs_node_name in OBSERVATION_NODES: 
             if obs_node_name in row:
-                # Convert the integer bin value from data to a string to match CPD state_names
+
                evidence[(obs_node_name, 0)] = int(row[obs_node_name])
         evidence_seq_for_df.append(evidence) 
 

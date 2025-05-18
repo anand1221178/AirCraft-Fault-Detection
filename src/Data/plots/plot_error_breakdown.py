@@ -5,7 +5,7 @@ from sklearn.metrics import confusion_matrix
 # Load prediction file with true labels and predicted labels
 df = pd.read_csv("all_probs_macroF1.csv")
 
-# Assumes macro-F1 thresholds were applied
+
 def label_from_thresh(row, tau_c=0.76, tau_d=0.24):
     if row["P(Engine_Core_Health=Critical)"] > tau_c:
         return "Critical"

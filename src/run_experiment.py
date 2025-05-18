@@ -3,27 +3,24 @@
 
 import sys
 import pandas as pd
-import os # For os.makedirs
-import numpy as np # For np.array, np.nan, etc.
-import matplotlib.pyplot as plt # For plotting
-import pgmpy # For pgmpy.__version__
+import os 
+import numpy as np 
+import matplotlib.pyplot as plt 
+import pgmpy 
 from sklearn.metrics import accuracy_score
 
-# --- Include submodules in path ---
+
 sys.path.append("./Data_Gen")
 sys.path.append("./DBN")
 sys.path.append("./PreProcessing")
 sys.path.append("./Utils")
-# Get the directory of the current script (run_experiment.py)
-# This assumes run_experiment.py is in the 'src' folder.
-# --- CORRECTED Path Construction ---
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  # This correctly gets PROJECT_ROOT/src/
-# CMAPS_DATA_DIR is relative to SCRIPT_DIR (i.e., src/)
-CMAPS_DATA_DIR = os.path.join(SCRIPT_DIR, "Data", "C-MAPSS") 
-# This will now correctly resolve to: PROJECT_ROOT/src/Data/C-MAPSS/
-print(f"[run_experiment.py] CORRECTED CMAPS_DATA_DIR: {CMAPS_DATA_DIR}") # Add this for confirmation
 
-# --- Imports from your project modules ---
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))  
+CMAPS_DATA_DIR = os.path.join(SCRIPT_DIR, "Data", "C-MAPSS") 
+
+print(f"[run_experiment.py] CORRECTED CMAPS_DATA_DIR: {CMAPS_DATA_DIR}") # Added this for confirmation
+
+
 from sim_data import prepare_cmaps_data
 from mrf_model import temporal_mrf_smoothing
 from dbn_inference import infer_marginals_dataframe
@@ -133,7 +130,7 @@ def save_fold_predictions() -> None:
 
     train_df, _, _ = prepare_cmaps_data(base_dir=CMAPS_DATA_DIR)
 
-    # Smooth vibration if needed
+    # Smooth vibration needed
     for obs in OBSERVATION_NODES:
         if "vibration" in obs.lower():
             raw = obs.replace("_disc", "")

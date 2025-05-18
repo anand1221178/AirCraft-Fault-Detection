@@ -31,14 +31,14 @@ def _two_slice_df(df: pd.DataFrame) -> pd.DataFrame:
 
     big = pd.DataFrame.from_records(rows)
 
-    # ── NEW: guarantee full category list for every column ───────────
+
     for col in big.columns:
         if col[0] == HEALTH_NODE:               # health: 3 states
             big[col] = pd.Categorical(big[col], categories=[0,1,2])
         else:                                   # sensor: use 0…max bin
             n_bins = int(df[col[0]].max()) + 1
             big[col] = pd.Categorical(big[col], categories=list(range(n_bins)))
-    # ----------------------------------------------------------------
+
 
     return big
 
@@ -46,10 +46,10 @@ def _two_slice_df(df: pd.DataFrame) -> pd.DataFrame:
 def learn_cpts_from_data(model, train_df):
     data = _two_slice_df(train_df)
 
-    # ❶  Maximum-likelihood training (pgmpy 0.1.x accepts no kwargs)
+
     model.fit(data)                 
 
-    # ❷  Pad any CPD that’s missing parent-state columns
+
     for cpd in model.get_cpds():
         vals = cpd.values
         if vals.ndim == 1:          # reshape root CPDs to 2-D

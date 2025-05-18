@@ -7,8 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-# File: evaluation.py
-# ... (imports) ...
+
 def evaluate_predictions(true_labels, predicted_labels, labels=None, output_prefix="output", save_dir="../Data/experiment_results/analysis_output"): # Add labels=None
     os.makedirs(save_dir, exist_ok=True)
 
@@ -18,8 +17,7 @@ def evaluate_predictions(true_labels, predicted_labels, labels=None, output_pref
     with open(os.path.join(save_dir, f"report_{output_prefix}.txt"), "w") as f:
         f.write(report)
 
-    # Pass labels to confusion_matrix
-    # Ensure the labels for cm_df index/columns match the order of `labels`
+
     if labels is None: # If no specific order, derive from unique values
         labels = sorted(list(set(true_labels) | set(predicted_labels)))
     
@@ -27,7 +25,7 @@ def evaluate_predictions(true_labels, predicted_labels, labels=None, output_pref
     cm_df = pd.DataFrame(cm, 
                            index=[f"True {l}" for l in labels],
                            columns=[f"Pred {l}" for l in labels])
-    # ... (plotting cm_df) ...
+
     plt.figure(figsize=(max(6, len(labels)*2), max(5, len(labels)*1.8))) # Adjust size
     sns.heatmap(cm_df, annot=True, fmt="d", cmap="Blues")
     plt.title(f"Confusion Matrix: {output_prefix}")

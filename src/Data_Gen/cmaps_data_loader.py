@@ -1,5 +1,5 @@
 # File: cmaps_data_loader.py
-# Description: Loads and formats C-MAPSS data for integration into your PGM pipeline
+
 
 import pandas as pd
 import os
@@ -21,10 +21,6 @@ def load_cmaps_data(base_dir, dataset_id="FD001"):
     """
     assert dataset_id in ["FD001", "FD002", "FD003", "FD004"], f"Invalid dataset ID: {dataset_id}"
 
-    # # File paths
-    # train_file = os.path.join(base_dir, f"train_{dataset_id}.txt")
-    # test_file = os.path.join(base_dir, f"test_{dataset_id}.txt")
-    # rul_file = os.path.join(base_dir, f"RUL_{dataset_id}.txt")
 
     # Column names
     op_cols = [f"op_setting_{i}" for i in range(1, 4)]
@@ -54,14 +50,14 @@ def add_rul_column(df, max_rul_cap=None):
     return df_copy
 
 def add_discrete_health_label(df):
-    df_copy = df.copy() # Work on a copy
-    def label_rul(rul): # These thresholds should ideally come from config.RUL_THRESHOLDS
-        if rul > 120: # Example: config.RUL_THRESHOLDS["Healthy"]
+    df_copy = df.copy()
+    def label_rul(rul): 
+        if rul > 120: 
             return 'Healthy'
-        elif rul > 60: # Example: config.RUL_THRESHOLDS["Degrading"]
+        elif rul > 60: 
             return 'Degrading'
         else:
             return 'Critical'
-    # Use the imported HEALTH_NODE variable (e.g., "Engine_Core_Health") for the column name
+    
     df_copy[HEALTH_NODE] = df_copy["RUL"].apply(label_rul)
     return df_copy

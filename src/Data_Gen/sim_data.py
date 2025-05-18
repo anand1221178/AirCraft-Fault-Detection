@@ -4,25 +4,15 @@ import pandas as pd
 import numpy as np
 import os 
 
-# Direct imports, assuming Data_Gen is on sys.path
+
 from cmaps_data_loader import load_cmaps_data, add_rul_column, add_discrete_health_label
 from discretize_data import discretize_data
-# Ensure config.py is also in Data_Gen or another directory added to sys.path
-# If config.py is in Data_Gen:
-from config import DATASET_ID, BINNING_STRATEGY, N_BINS, MANUAL_BINS, OBSERVATION_NODES, SELECTED_SENSORS
-# If config.py is in src/ (and src/ is not directly on sys.path but ./ is, when running from src/):
-# You might need to adjust how config is found or ensure Data_Gen can see it.
-# Given your sys.path.append in run_experiment.py for submodules, and if config.py is in Data_Gen,
-# 'from config import ...' should work when run_experiment.py imports sim_data.
 
-# Function definitions (prepare_cmaps_data, generate_drifted_engine) as before...
-# ... Make sure the generate_drifted_engine function is the one I provided previously
-#     that includes the base_dir fallback and uses os.path.join etc.
-#     (The one that fixed the FileNotFoundError logic)
+from config import DATASET_ID, BINNING_STRATEGY, N_BINS, MANUAL_BINS, OBSERVATION_NODES, SELECTED_SENSORS
+
 
 def prepare_cmaps_data(base_dir="Data/C-MAPSS", drift_scenario=None):
-    # ... (implementation using load_cmaps_data, add_rul_column, etc.)
-    # Step 1: Load data
+
     train_df, test_df, test_rul = load_cmaps_data(base_dir, dataset_id=DATASET_ID)
 
     # Step 2: Add RUL and health labels
@@ -57,6 +47,8 @@ def prepare_cmaps_data(base_dir="Data/C-MAPSS", drift_scenario=None):
             print(f"Warning: Drift sensor {drift_sensor} not found in train_df. Skipping EGT_Drift for prepare_cmaps_data.")
     return train_df, test_df, test_rul
 
+
+# -----------------BELOW FUNC IS NOT USED-----------------#
 def generate_drifted_engine(scenario="EGT_Drift", n_steps=50, base_unit_id=1, 
                             dataset_id_for_base="FD001", base_dir=None): # base_dir will be passed from run_experiment
     
@@ -66,9 +58,8 @@ def generate_drifted_engine(scenario="EGT_Drift", n_steps=50, base_unit_id=1,
     cycles = np.arange(1, n_steps + 1)
     df_synthetic = pd.DataFrame({'unit': base_unit_id, 'cycle': cycles})
 
-    # Set all OBSERVATION_NODES (discretized sensor names from config) to a "healthy" bin (e.g., 0 or 1)
-    # Ensure OBSERVATION_NODES is imported from config
-    healthy_bin_value = 0 # Or 1, depending on what's typical for healthy for most sensors
+
+    healthy_bin_value = 0
     for sensor_disc_name in OBSERVATION_NODES:
         df_synthetic[sensor_disc_name] = healthy_bin_value
     
@@ -83,17 +74,17 @@ def generate_drifted_engine(scenario="EGT_Drift", n_steps=50, base_unit_id=1,
                 drift_values_pattern = np.array([0]).astype(int) 
             df_synthetic[drift_sensor_disc] = np.clip(drift_values_pattern, 0, max_bin_value)
             print(f"  Applied SYNTHETIC AGGRESSIVE drift to '{drift_sensor_disc}' from bin 0 towards {max_bin_value}.")
-            # print(f"  Drifted {drift_sensor_disc} (first 10): {df_synthetic[drift_sensor_disc].head(10).values}")
+           
         else:
             print(f"  Warning: Drift sensor '{drift_sensor_disc}' not in OBSERVATION_NODES. Cannot apply EGT_Drift.")
             
     elif scenario == "Vibration_Spike":
-        # ... (implement similar logic for a synthetic spike if needed) ...
+       
         pass
     else:
         print(f"  Warning: Unknown drift scenario '{scenario}'. No drift applied to synthetic data.")
 
-    # The RUL and HealthState will be added in run_experiment.py to force "Healthy"
+    
     return df_synthetic
 
 
