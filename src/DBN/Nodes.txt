@@ -1,4 +1,0 @@
-Reddish Nodes: The hidden things your model tries to infer (component health, sensor health).
-Blue/Green Nodes: The actual sensor readings (discrete) that you feed into the model as evidence.
-Light Blue / Light Coral: Represent the state of variables at the beginning of a time step (t=0).
-Light Green / Salmon: Represent the state of variables at the next time step (t=1).
