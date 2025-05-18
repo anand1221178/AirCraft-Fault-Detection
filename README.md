@@ -1,93 +1,105 @@
-# ✈️ Aircraft Engine Fault Detection using PGMs
+# ✈️ Aircraft Engine Fault Detection using Dynamic Bayesian Networks
 
-This project implements a **Dynamic Bayesian Network (DBN)** integrated with a **Markov Random Field (MRF)** to detect early-stage faults in aircraft engines. The system processes noisy, discretized sensor data and distinguishes between mechanical degradation and sensor failures.
+This project implements a **Dynamic Bayesian Network (DBN)** integrated with a **Markov Random Field (MRF)** to detect early-stage faults in aircraft engines. The model is trained and evaluated on the **NASA C-MAPSS FD001** dataset, using discretized sensor readings to classify health states: **Healthy**, **Degrading**, and **Critical**.
 
 ---
 
-## 🧠 Core Ideas
+## 🧠 Project Highlights
 
-- **DBN** captures temporal dependencies between engine subsystem health and sensor observations.
-- **MRF** smooths inconsistent vibration readings from colocated sensors (Vib1/Vib2).
-- **Sensor Health Modeling** enables robustness to sensor drift and failure.
-- **Simulated Dataset** mimics five realistic operational scenarios:
-  - Normal Operation
-  - Oil Leak
-  - Bearing Wear
-  - EGT Sensor Failure
-  - Vibration Sensor Failure
+- **DBN** models temporal transitions of engine health using multivariate sensor emissions.
+- **MRF Smoothing** improves robustness to vibration noise by enforcing temporal consistency.
+- **Sensor Binning Strategy** includes quantile, k-means, and uniform schemes across 9 selected sensors.
+- **Threshold Optimization** via grid search for:
+  - Accuracy-tuned
+  - Macro-F1-tuned
+  - Fixed threshold baselines
+- **Extensive Evaluation** includes confusion matrices, per-class F1, posteriors, and error analysis.
 
 ---
 
 ## 📁 Project Structure
 
-| Folder/File        | Purpose |
-|--------------------|---------|
-| `Data_Gen/`        | Sensor simulation & discretization logic |
-| `DBN/`             | DBN model creation & inference implementation |
-| `PreProcessing/`   | MRF-based vibration smoothing |
-| `Utils/`           | Evaluation scripts & rule-based baselines |
-| `Data/`            | Generated data, plots, and model outputs |
-| `PGM_GUI_Viewer/`  | Lightweight dashboard to explore results |
-| `run_experiment.py`| Main pipeline: sim → DBN → classify |
-| `evaluation.py`    | Outputs accuracy, F1, confusion matrices |
-| `2561034_report.pdf` | Full technical write-up (IEEE format) |
+| Folder/File             | Purpose |
+|--------------------------|---------|
+| `DBN/`                   | DBN model structure, CPT learning, and inference |
+| `Data_Gen/`              | Sensor binning and data preprocessing |
+| `PreProcessing/`         | MRF smoothing for vibration channels |
+| `Utils/`                 | Evaluation, thresholding, and plotting tools |
+| `Data/plots/`            | Output CSVs and final figures for report |
+| `run_experiment.py`      | Main pipeline: binning → DBN → inference → export |
+| `evaluation.py`          | Confusion matrix, classification metrics |
+| `2561034_report.pdf`     | Final 5-page IEEE report |
 
 ---
 
-## 🚀 How to Run
+## ⚙️ How to Run the Pipeline
 
-### 1. Environment Setup
+### 1. Setup Environment
 
 ```bash
-conda env create -f environment.yaml
+conda create -n aircraft_env python=3.10
 conda activate aircraft_env
+pip install -r requirements.txt
 ```
 
-### 2. Run the Experiment
+Optional: or use the provided `environment.yaml`.
+You also will have to run `pip install --upgrade "pgmpy<0.2.0"`
+### 2. Run the Main Experiment
 
 ```bash
 python run_experiment.py
 ```
 
-### 3. Evaluate Model Predictions
-
-```bash
-cd Utils/
-python evaluation.py
-```
-
-### 4. View the Results in Browser (optional)
-
-```bash
-cd PGM_GUI_Viewer/
-python viewer_app.py
-```
-
-Then open `http://127.0.0.1:5000` in your browser.
+This will:
+- Discretize sensor data
+- Smooth vibration sensors (optional)
+- Learn DBN CPDs (MLE + smoothing)
+- Run inference
+- Save results to `Data/plots/`:
+  - `unit1_posteriors.csv`
+  - `all_probs_macroF1.csv`
+  - `DBN_learned_fold{0..9}.csv`
 
 ---
 
-## 📊 Sample Output
+## 📊 Generated Outputs
 
-- Accuracy: 85.1% (Full DBN + MRF)
-- F1 Score: 0.796 (better than Vanilla DBN and Rule-Based)
-- Robust under sensor failure scenarios
-- Interpretable inference timelines & confusion matrices
+| Output File | Description |
+|-------------|-------------|
+| `unit1_posteriors.csv` | Per-cycle posteriors for a representative engine |
+| `all_probs_macroF1.csv` | Final macro-F1 optimized posteriors and predictions |
+| `DBN_learned_fold*.csv` | 10-fold cross-validation results |
+| `confusion_macroF1.png` | Final confusion matrix plot |
+| `learning_curve_f1breakdown.png` | Macro-F1 vs folds + per-class F1 bars |
+| `error_breakdown_per_class.png` | FP and FN rates per class |
+| `threshold_heatmap.png` | Macro-F1 score across grid of threshold values |
+
+---
+
+## 🧪 Metrics Summary
+
+- **Accuracy (best tuned)**: 0.65  
+- **Macro-F1 (best tuned)**: 0.6347  
+- **Critical Recall**: > 0.80  
+- **Degrading** is most difficult due to transitional ambiguity
 
 ---
 
 ## 📄 Report
 
-See [`2561034_report.pdf`](2561034_report.pdf) for full methodology, results, and analysis.
+All methodology, analysis, and results are presented in:  
+📄 [`2561034_report.pdf`](2561034_report.pdf)
 
 ---
 
-## 🛠️ Future Work
+## 🧭 Suggested Future Work
 
-- Structural learning from real engine data
-- HMM/Kalman hybrid modules for continuous modeling
-- Operator-in-the-loop feedback for adaptive thresholds
+- Learn DBN structure (not only CPDs)
+- Integrate Kalman filter for hybrid continuous-discrete tracking
+- Online CPT updates for drift adaptation
+- Incorporate causal discovery and intervention modeling
 
 ---
 
-Built with ❤️ for Probabilistic Graphical Models coursework.
+Made for the **Probabilistic Graphical Models** final project  
+🛫 Wits CS Honours, 2025
